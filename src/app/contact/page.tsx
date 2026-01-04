@@ -40,11 +40,32 @@ export default function ContactPage() {
     },
   });
 
-  const onSubmit = (data: ContactForm) => {
-    console.log("Contact form submitted", data);
-    setIsSubmitted(true);
-    form.reset();
-    // In a real implementation, send data to backend or email service here
+  const onSubmit = async (data: ContactForm) => {
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        setIsSubmitted(true);
+        form.reset();
+        return;
+      }
+
+      // If server reports not implemented or failed, fallback to mailto
+      const fallbackTo = 'support@eduguide.online';
+      const subject = encodeURIComponent(`Contact from ${data.name}`);
+      const body = encodeURIComponent(`Name: ${data.name}%0AEmail: ${data.email}%0A%0A${data.message}`);
+      window.location.href = `mailto:${fallbackTo}?subject=${subject}&body=${body}`;
+    } catch (e) {
+      // Network or other error -> fallback to mailto
+      const fallbackTo = 'support@eduguide.online';
+      const subject = encodeURIComponent(`Contact from ${data.name}`);
+      const body = encodeURIComponent(`Name: ${data.name}%0AEmail: ${data.email}%0A%0A${data.message}`);
+      window.location.href = `mailto:${fallbackTo}?subject=${subject}&body=${body}`;
+    }
   };
 
   return (
@@ -90,7 +111,7 @@ export default function ContactPage() {
               <CardTitle>Email</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">hello@eduguide.com</p>
+              <p className="text-gray-600">support@eduguide.online</p>
               <p className="text-sm text-gray-500 mt-2">We'll respond within 24 hours</p>
             </CardContent>
           </Card>
@@ -116,7 +137,7 @@ export default function ContactPage() {
               <CardTitle>Support</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">support@eduguide.com</p>
+              <p className="text-gray-600">help@eduguide.online</p>
               <p className="text-sm text-gray-500 mt-2">For urgent technical issues</p>
             </CardContent>
           </Card>
