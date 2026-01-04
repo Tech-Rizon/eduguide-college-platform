@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { GraduationCap, ArrowLeft } from "lucide-react";
+import { motion } from "framer-motion";
 
 /**
  * FAQ page
@@ -34,9 +36,41 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-6 py-12">
-      <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 text-center">Frequently Asked Questions</h1>
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center space-x-2">
+          <GraduationCap className="h-8 w-8 text-blue-600" />
+          <span className="text-2xl font-bold text-gray-900">EduGuide</span>
+        </Link>
+        <div className="flex items-center space-x-4">
+          <Link href="/">
+            <Button variant="ghost">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button>Get Started</Button>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-5xl md:text-6xl font-bold text-gray-900 mb-8 text-center"
+        >
+          Frequently Asked Questions
+        </motion.h1>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          className="space-y-6"
+        >
         {faqs.map((faq, idx) => (
           <Card key={idx} className="hover:shadow-md transition-shadow">
             <CardHeader>
@@ -47,11 +81,20 @@ export default function FAQPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
-      <div className="mt-12 flex justify-center">
-        <Link href="/contact" passHref>
-          <Button variant="outline">Still have questions? Contact us</Button>
-        </Link>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+          className="mt-12 text-center p-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg"
+        >
+          <h2 className="text-3xl font-bold mb-4">Still have questions?</h2>
+          <p className="mb-6 text-lg opacity-90">We're here to help. Get in touch with our support team.</p>
+          <Link href="/contact">
+            <Button variant="secondary" size="lg">Contact Us</Button>
+          </Link>
+        </motion.div>
       </div>
     </div>
   );

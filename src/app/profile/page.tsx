@@ -61,10 +61,10 @@ export default function ProfilePage() {
             You need to be logged in to view your profile. Please sign in or create an account to access your personal information and tutoring requests.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/login" passHref>
+            <Link href="/login">
               <Button size="lg" variant="outline">Sign In</Button>
             </Link>
-            <Link href="/register" passHref>
+            <Link href="/register">
               <Button size="lg">Create Account</Button>
             </Link>
           </div>
@@ -95,7 +95,7 @@ export default function ProfilePage() {
             </div>
           )}
           <div className="mt-6 text-center">
-            <Link href="/tutoring-support" passHref>
+            <Link href="/tutoring-support">
               <Button>View Tutoring Requests</Button>
             </Link>
           </div>

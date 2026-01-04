@@ -10,6 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormField, FormItem, FormLabel, FormMessage, FormControl } from "@/components/ui/form";
 import { useState } from "react";
+import { GraduationCap, ArrowLeft, Mail, Phone } from "lucide-react";
+import { motion } from "framer-motion";
 
 // Define a simple validation schema for the contact form
 const contactSchema = z.object({
@@ -46,8 +48,86 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-6 py-12 flex flex-col items-center">
-      <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 text-center">Contact Us</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center space-x-2">
+          <GraduationCap className="h-8 w-8 text-blue-600" />
+          <span className="text-2xl font-bold text-gray-900">EduGuide</span>
+        </Link>
+        <div className="flex items-center space-x-4">
+          <Link href="/">
+            <Button variant="ghost">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">Contact Us</h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">Have questions? We'd love to hear from you. Get in touch with our team.</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+          className="grid md:grid-cols-3 gap-8 mb-16"
+        >
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Mail className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle>Email</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">hello@eduguide.com</p>
+              <p className="text-sm text-gray-500 mt-2">We'll respond within 24 hours</p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <Phone className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle>Phone</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">(555) 123-4567</p>
+              <p className="text-sm text-gray-500 mt-2">Mon-Fri 9am-5pm EST</p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <Mail className="h-6 w-6 text-purple-600" />
+              </div>
+              <CardTitle>Support</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">support@eduguide.com</p>
+              <p className="text-sm text-gray-500 mt-2">For urgent technical issues</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+          className="max-w-2xl mx-auto"
+        >
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>We’d love to hear from you</CardTitle>
@@ -107,9 +187,10 @@ export default function ContactPage() {
                 <Button type="submit" className="w-full">Send Message</Button>
               </form>
             </Form>
-          )}
         </CardContent>
       </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }
