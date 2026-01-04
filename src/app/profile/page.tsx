@@ -33,7 +33,7 @@ export default function ProfilePage() {
       .select("*")
       .eq("id", user.id)
       .single()
-      .then(({ data, error }) => {
+      .then(({ data, error }: { data: any; error: any }) => {
         if (error) {
           console.log("No profile found, using auth user data");
         }
