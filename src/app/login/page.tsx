@@ -38,16 +38,14 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      const { data: authData, error } = await signIn(data.email, data.password);
+      const { error } = await signIn(data.email, data.password);
 
       if (error) {
         throw error;
       }
 
-      if (authData?.user) {
-        toast.success("Login successful!");
-        router.push("/dashboard");
-      }
+      toast.success("Login successful!");
+      router.push("/dashboard");
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || "Login failed. Please check your credentials.");

@@ -15,7 +15,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 
 const registerSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -87,39 +86,16 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       // Sign up with Supabase
-      const { data: authData, error: authError } = await signUp(
+      const { error: authError } = await signUp(
         data.email,
         data.password,
         {
-          first_name: data.firstName,
-          last_name: data.lastName,
+          full_name: `${data.firstName} ${data.lastName}`,
         }
       );
 
       if (authError) {
         throw authError;
-      }
-
-      if (authData?.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: authData.user.id,
-            first_name: data.firstName,
-            last_name: data.lastName,
-            date_of_birth: data.dateOfBirth,
-            current_school: data.currentSchool,
-            school_type: data.schoolType,
-            graduation_year: data.graduationYear,
-            high_school: data.highSchool || null,
-            high_school_grad_year: data.highSchoolGradYear || null,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Don't throw error here as user is already created
-        }
       }
 
       toast.success("Registration successful! Please check your email to verify your account.");
