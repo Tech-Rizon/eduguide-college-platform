@@ -119,14 +119,27 @@ const subjects = [
 
 export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  // Read published Stripe Price IDs from environment (set these on Netlify)
+  const BASIC_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC ?? ''
+  const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
+  const ELITE_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? ''
 
-  const handleCheckout = async (amountCents: number, planName: string) => {
+  // handleCheckout supports either a Stripe Price ID (recommended) or an amount in cents (fallback)
+  const handleCheckout = async (
+    amountCents?: number,
+    planName?: string,
+    priceId?: string
+  ) => {
     try {
-      setLoadingPlan(planName);
+      setLoadingPlan(planName ?? null);
+      const payload: Record<string, any> = { plan: planName };
+      if (priceId) payload.priceId = priceId;
+      else if (typeof amountCents === 'number') payload.amount = amountCents;
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountCents, plan: planName }),
+        body: JSON.stringify(payload),
       });
 
       const body = await res.json();
@@ -161,13 +174,13 @@ export default function TutoringPage() {
             <Button variant="ghost">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Home
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button>Get Started</Button>
-          </Link>
-        </div>
-      </nav>
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(2500, 'Basic Support', BASIC_PRICE || undefined)}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
+                >
+                  {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
+                </Button>
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 py-12">
@@ -189,13 +202,13 @@ export default function TutoringPage() {
             <Button size="lg" className="text-lg px-8 py-6">
               Request Academic Support Now
               <MessageCircle className="ml-2 h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-              Schedule Free Consultation
-              <Calendar className="ml-2 h-5 w-5" />
-            </Button>
-          </div>
-        </motion.div>
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(4500, 'Premium Support', PREMIUM_PRICE || undefined)}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
+                >
+                  {loadingPlan === 'Premium Support' ? 'Processing…' : 'Choose Premium'}
+                </Button>
 
         {/* Features */}
         <motion.div
@@ -370,13 +383,13 @@ export default function TutoringPage() {
                   disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
                 >
                   {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(7500, 'Elite Support', ELITE_PRICE || undefined)}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
+                >
+                  {loadingPlan === 'Elite Support' ? 'Processing…' : 'Choose Elite'}
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Premium Plan */}
-            <Card className="hover:shadow-lg transition-shadow duration-300 border-blue-200 relative">
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <Badge className="bg-blue-600 text-white">Most Popular</Badge>
               </div>
               <CardHeader className="text-center">
