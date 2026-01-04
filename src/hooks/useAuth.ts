@@ -12,7 +12,7 @@ export function useAuth() {
     let mounted = true
 
     // Get initial user
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: any }) => {
       if (!mounted) return
       setUser(data.user ?? null)
       setLoading(false)
