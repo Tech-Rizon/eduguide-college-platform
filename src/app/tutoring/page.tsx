@@ -124,17 +124,16 @@ export default function TutoringPage() {
   const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
   const ELITE_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? ''
 
-  // handleCheckout supports either a Stripe Price ID (recommended) or an amount in cents (fallback)
-  const handleCheckout = async (
-    amountCents?: number,
-    planName?: string,
-    priceId?: string
-  ) => {
+  // handleCheckout requires a Stripe Price ID. Inline amounts were removed.
+  const handleCheckout = async (priceId: string | undefined, planName?: string) => {
+    if (!priceId) {
+      toast.error('Payment not configured. Please contact support.');
+      return;
+    }
+
     try {
       setLoadingPlan(planName ?? null);
-      const payload: Record<string, any> = { plan: planName };
-      if (priceId) payload.priceId = priceId;
-      else if (typeof amountCents === 'number') payload.amount = amountCents;
+      const payload: Record<string, any> = { plan: planName, priceId };
 
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -379,7 +378,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(2500, 'Basic Support')}
+                  onClick={() => handleCheckout(BASIC_PRICE || undefined, 'Basic Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
                 >
                   {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
@@ -422,7 +421,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(4500, 'Premium Support')}
+                  onClick={() => handleCheckout(PREMIUM_PRICE || undefined, 'Premium Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
                 >
                   {loadingPlan === 'Premium Support' ? 'Processing…' : 'Choose Premium'}
@@ -462,7 +461,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(7500, 'Elite Support')}
+                  onClick={() => handleCheckout(ELITE_PRICE || undefined, 'Elite Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
                 >
                   {loadingPlan === 'Elite Support' ? 'Processing…' : 'Choose Elite'}
