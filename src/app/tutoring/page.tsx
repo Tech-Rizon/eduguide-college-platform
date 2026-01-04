@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import {
   Video
 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 
 const services = [
   {
@@ -116,6 +118,35 @@ const subjects = [
 ];
 
 export default function TutoringPage() {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleCheckout = async (amountCents: number, planName: string) => {
+    try {
+      setLoadingPlan(planName);
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountCents, plan: planName }),
+      });
+
+      const body = await res.json();
+
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to create checkout session');
+      }
+
+      if (body.url) {
+        window.location.href = body.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      toast.error(err?.message || 'Unable to start checkout');
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
@@ -333,7 +364,13 @@ export default function TutoringPage() {
                     <span>Email support</span>
                   </li>
                 </ul>
-                <Button className="w-full mt-6">Choose Basic</Button>
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(2500, 'Basic Support')}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
+                >
+                  {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
+                </Button>
               </CardContent>
             </Card>
 
@@ -370,7 +407,13 @@ export default function TutoringPage() {
                     <span>Priority support</span>
                   </li>
                 </ul>
-                <Button className="w-full mt-6">Choose Premium</Button>
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(4500, 'Premium Support')}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
+                >
+                  {loadingPlan === 'Premium Support' ? 'Processing…' : 'Choose Premium'}
+                </Button>
               </CardContent>
             </Card>
 
@@ -404,7 +447,13 @@ export default function TutoringPage() {
                     <span>24/7 chat support</span>
                   </li>
                 </ul>
-                <Button className="w-full mt-6">Choose Elite</Button>
+                <Button
+                  className="w-full mt-6"
+                  onClick={() => handleCheckout(7500, 'Elite Support')}
+                  disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
+                >
+                  {loadingPlan === 'Elite Support' ? 'Processing…' : 'Choose Elite'}
+                </Button>
               </CardContent>
             </Card>
           </div>
