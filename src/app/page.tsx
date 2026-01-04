@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GraduationCap, MessageCircle, Search, Users, ArrowRight, Star, BookOpen } from "lucide-react";
+import { GraduationCap, MessageCircle, Search, Users, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
