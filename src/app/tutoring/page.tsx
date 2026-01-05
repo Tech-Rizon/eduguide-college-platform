@@ -173,13 +173,13 @@ export default function TutoringPage() {
             <Button variant="ghost">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Home
-                <Button
-                  className="w-full mt-6"
-                  onClick={() => handleCheckout(2500, 'Basic Support', BASIC_PRICE || undefined)}
-                  disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
-                >
-                  {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
-                </Button>
+            </Button>
+          </Link>
+          <Link href="/contact">
+            <Button variant="outline">Contact</Button>
+          </Link>
+        </div>
+      </nav>
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 py-12">
@@ -201,13 +201,9 @@ export default function TutoringPage() {
             <Button size="lg" className="text-lg px-8 py-6">
               Request Academic Support Now
               <MessageCircle className="ml-2 h-5 w-5" />
-                <Button
-                  className="w-full mt-6"
-                  onClick={() => handleCheckout(4500, 'Premium Support', PREMIUM_PRICE || undefined)}
-                  disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
-                >
-                  {loadingPlan === 'Premium Support' ? 'Processing…' : 'Choose Premium'}
-                </Button>
+            </Button>
+          </div>
+        </motion.div>
 
         {/* Features */}
         <motion.div
@@ -382,13 +378,13 @@ export default function TutoringPage() {
                   disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
                 >
                   {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
-                <Button
-                  className="w-full mt-6"
-                  onClick={() => handleCheckout(7500, 'Elite Support', ELITE_PRICE || undefined)}
-                  disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
-                >
-                  {loadingPlan === 'Elite Support' ? 'Processing…' : 'Choose Elite'}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Premium Plan */}
+            <Card className="hover:shadow-lg transition-shadow duration-300 border-blue-200 relative">
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <Badge className="bg-blue-600 text-white">Most Popular</Badge>
               </div>
               <CardHeader className="text-center">

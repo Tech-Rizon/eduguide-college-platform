@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { supabaseServer } from '@/lib/supabaseServer'
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
@@ -14,7 +13,22 @@ export async function POST(request: Request) {
   const payload = await request.text()
   const sig = request.headers.get('stripe-signature') || ''
 
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2022-11-15' })
+  const stripe = new Stripe(stripeSecret)
+
+  // Lazy-load Supabase server client only if needed
+  let supabaseServer: any = null
+  const getSupabaseServer = () => {
+    if (!supabaseServer) {
+      try {
+        const { supabaseServer: sb } = require('@/lib/supabaseServer')
+        supabaseServer = sb
+      } catch (err) {
+        console.error('Failed to load Supabase server client:', err)
+        return null
+      }
+    }
+    return supabaseServer
+  }
 
   let event: Stripe.Event
   try {
@@ -40,15 +54,18 @@ export async function POST(request: Request) {
 
       // Insert a record into Supabase (ensure table `payments` exists)
       try {
-        await supabaseServer.from('payments').insert([{ 
-          session_id: fullSession.id,
-          customer_email,
-          amount: amount_total,
-          currency,
-          payment_status,
-          price_id,
-          plan,
-        }])
+        const sb = getSupabaseServer()
+        if (sb) {
+          await sb.from('payments').insert([{ 
+            session_id: fullSession.id,
+            customer_email,
+            amount: amount_total,
+            currency,
+            payment_status,
+            price_id,
+            plan,
+          }])
+        }
       } catch (dbErr: any) {
         console.error('Supabase insert error:', dbErr)
       }

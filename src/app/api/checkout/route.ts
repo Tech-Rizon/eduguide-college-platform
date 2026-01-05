@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing or invalid priceId' }, { status: 400 })
     }
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2022-11-15' })
+    const stripe = new Stripe(stripeSecret)
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://eduguide.online'
 
