@@ -1,3 +1,8 @@
+-- Drop tables if they exist (for clean re-runs)
+DROP TABLE IF EXISTS public.tutoring_requests CASCADE;
+DROP TABLE IF EXISTS public.user_settings CASCADE;
+DROP TABLE IF EXISTS public.user_profiles CASCADE;
+
 -- Create user_profiles table
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID NOT NULL PRIMARY KEY,

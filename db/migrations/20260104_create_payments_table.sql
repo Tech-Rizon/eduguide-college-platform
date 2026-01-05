@@ -1,6 +1,9 @@
 -- Migration: create payments table and supporting objects
 -- Run this on your Supabase/Postgres database (e.g., psql or Supabase SQL editor)
 
+-- Drop table if it exists (for clean re-runs)
+DROP TABLE IF EXISTS public.payments CASCADE;
+
 -- Ensure uuid generator is available
 create extension if not exists pgcrypto;
 
