@@ -125,6 +125,11 @@ DROP POLICY IF EXISTS "Users can insert their own profile" ON public.user_profil
 CREATE POLICY "Users can insert their own profile" ON public.user_profiles
 FOR INSERT WITH CHECK (auth.uid() = id);
 
+-- Service role can do anything (for API operations)
+DROP POLICY IF EXISTS "Service role bypass" ON public.user_profiles;
+CREATE POLICY "Service role bypass" ON public.user_profiles
+FOR ALL USING (auth.role() = 'service_role');
+
 -- RLS Policies for user_settings
 -- Users can view only their own settings
 DROP POLICY IF EXISTS "Users can view their own settings" ON public.user_settings;
@@ -141,6 +146,11 @@ WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can insert their own settings" ON public.user_settings;
 CREATE POLICY "Users can insert their own settings" ON public.user_settings
 FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Service role can do anything (for API operations)
+DROP POLICY IF EXISTS "Service role bypass" ON public.user_settings;
+CREATE POLICY "Service role bypass" ON public.user_settings
+FOR ALL USING (auth.role() = 'service_role');
 
 -- RLS Policies for tutoring_requests
 -- Users can view their own requests
@@ -164,13 +174,7 @@ CREATE POLICY "Users can update their own tutoring requests" ON public.tutoring_
 FOR UPDATE USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
 
--- Admins can update any request (assign tutors, change status)
--- This assumes there's a custom claim for admin role
-DROP POLICY IF EXISTS "Admins can manage all tutoring requests" ON public.tutoring_requests;
-CREATE POLICY "Admins can manage all tutoring requests" ON public.tutoring_requests
-FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM public.user_profiles
-    WHERE id = auth.uid() AND email LIKE '%@admin%' -- Simple check; adjust as needed
-  )
-);
+-- Service role can do anything (for API operations)
+DROP POLICY IF EXISTS "Service role bypass" ON public.tutoring_requests;
+CREATE POLICY "Service role bypass" ON public.tutoring_requests
+FOR ALL USING (auth.role() = 'service_role');
