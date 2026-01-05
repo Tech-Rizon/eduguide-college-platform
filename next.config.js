@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Use Node.js runtime for server-side functions (Supabase, Stripe webhooks)
+  // Remove 'export' to support API routes and server-side operations
   distDir: 'out',
   eslint: {
     ignoreDuringBuilds: true,
