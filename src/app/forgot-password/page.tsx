@@ -7,23 +7,38 @@ import { Input } from "@/components/ui/input";
 import { GraduationCap, ArrowLeft, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
 /**
  * Forgot Password page
  *
  * Allows users to request a password reset via email.
- * In production, this should connect to your Supabase auth reset flow.
+ * Uses Supabase auth reset flow.
  */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { resetPassword } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real implementation, call Supabase's resetPasswordForEmail
-    console.log("Password reset requested for:", email);
-    setSubmitted(true);
-    setEmail("");
+    setIsLoading(true);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) {
+        throw error;
+      }
+      toast.success("Password reset email sent!");
+      setSubmitted(true);
+      setEmail("");
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      toast.error(error?.message || "Failed to send reset email");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -84,10 +99,11 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
-                  <Button type="submit" className="w-full">
-                    Send Reset Link
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Sending..." : "Send Reset Link"}
                   </Button>
                   <div className="text-center text-sm">
                     <p className="text-gray-600">

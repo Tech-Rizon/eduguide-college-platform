@@ -83,19 +83,19 @@ export default function DemoPage() {
     // Add welcome message
     setMessages([{
       id: "welcome",
-      content: `Welcome to the EduGuide AI Demo! 🎓
+      content: `Welcome to the EduGuide AI Assistant! 🎓
 
-I'm your AI college guidance assistant. In this demo, you can ask me about:
+I'm your AI college guidance advisor. I can help you with:
 
-• Finding colleges in different states
-• Learning about admission requirements
-• Understanding financial aid options
-• Exploring community colleges vs universities
-• Getting general college advice
+• Finding colleges that match your interests and goals
+• Understanding admission requirements
+• Exploring financial aid and scholarship options
+• Comparing community colleges vs universities
+• Getting personalized college recommendations
 
-Try asking me something like "What colleges are good in California?" or "Tell me about financial aid"
+Try asking me something like "What colleges are good for computer science in California?" or "Tell me about financial aid options"
 
-Note: This is a limited demo. Create an account for the full experience with personalized recommendations!`,
+Create an account to save your preferences and get even more personalized guidance based on your academic profile!`,
       sender: "ai",
       timestamp: new Date(),
     }]);
