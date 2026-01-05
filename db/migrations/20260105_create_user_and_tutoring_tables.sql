@@ -105,52 +105,63 @@ ALTER TABLE public.tutoring_requests ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for user_profiles
 -- Users can view all public profiles
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.user_profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON public.user_profiles
 FOR SELECT USING (true);
 
 -- Users can update only their own profile
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 CREATE POLICY "Users can update their own profile" ON public.user_profiles
 FOR UPDATE USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
 -- Users can insert their own profile
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.user_profiles;
 CREATE POLICY "Users can insert their own profile" ON public.user_profiles
 FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for user_settings
 -- Users can view only their own settings
+DROP POLICY IF EXISTS "Users can view their own settings" ON public.user_settings;
 CREATE POLICY "Users can view their own settings" ON public.user_settings
 FOR SELECT USING (auth.uid() = user_id);
 
 -- Users can update only their own settings
+DROP POLICY IF EXISTS "Users can update their own settings" ON public.user_settings;
 CREATE POLICY "Users can update their own settings" ON public.user_settings
 FOR UPDATE USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
 
 -- Users can insert their own settings
+DROP POLICY IF EXISTS "Users can insert their own settings" ON public.user_settings;
 CREATE POLICY "Users can insert their own settings" ON public.user_settings
 FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- RLS Policies for tutoring_requests
 -- Users can view their own requests
+DROP POLICY IF EXISTS "Users can view their own tutoring requests" ON public.tutoring_requests;
 CREATE POLICY "Users can view their own tutoring requests" ON public.tutoring_requests
 FOR SELECT USING (auth.uid() = user_id);
 
 -- Tutors can view requests assigned to them
+DROP POLICY IF EXISTS "Assigned tutors can view requests" ON public.tutoring_requests;
 CREATE POLICY "Assigned tutors can view requests" ON public.tutoring_requests
 FOR SELECT USING (auth.uid() = assigned_tutor_id);
 
 -- Users can create requests
+DROP POLICY IF EXISTS "Users can create tutoring requests" ON public.tutoring_requests;
 CREATE POLICY "Users can create tutoring requests" ON public.tutoring_requests
 FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own requests
+DROP POLICY IF EXISTS "Users can update their own tutoring requests" ON public.tutoring_requests;
 CREATE POLICY "Users can update their own tutoring requests" ON public.tutoring_requests
 FOR UPDATE USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
 
 -- Admins can update any request (assign tutors, change status)
 -- This assumes there's a custom claim for admin role
+DROP POLICY IF EXISTS "Admins can manage all tutoring requests" ON public.tutoring_requests;
 CREATE POLICY "Admins can manage all tutoring requests" ON public.tutoring_requests
 FOR ALL USING (
   EXISTS (
