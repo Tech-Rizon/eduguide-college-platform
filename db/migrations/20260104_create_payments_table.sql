@@ -44,7 +44,8 @@ create index if not exists payments_user_id_idx on public.payments (user_id);
 alter table public.payments enable row level security;
 
 -- Allow only service role to write (deny anonymous/authenticated access)
-create policy if not exists "No direct access for anon/auth"
+drop policy if exists "No direct access for anon/auth" on public.payments;
+create policy "No direct access for anon/auth"
   on public.payments
   for all
   to anon, authenticated
