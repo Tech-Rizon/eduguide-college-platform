@@ -47,10 +47,11 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ settings: data || defaults })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to fetch settings';
     console.error('Error fetching user settings:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to fetch settings' },
+      { error: errorMsg },
       { status: 500 }
     )
   }
@@ -129,10 +130,11 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ settings: data?.[0] })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to update settings';
     console.error('Error updating user settings:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to update settings' },
+      { error: errorMsg },
       { status: 500 }
     )
   }

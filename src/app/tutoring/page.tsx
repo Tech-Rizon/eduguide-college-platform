@@ -133,7 +133,7 @@ export default function TutoringPage() {
 
     try {
       setLoadingPlan(planName ?? null);
-      const payload: Record<string, any> = { plan: planName, priceId };
+      const payload: { plan?: string; priceId: string } = { plan: planName, priceId };
 
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -152,9 +152,10 @@ export default function TutoringPage() {
       } else {
         throw new Error('No checkout URL returned');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Checkout error:', err);
-      toast.error(err?.message || 'Unable to start checkout');
+      const errorMsg = err instanceof Error ? err.message : 'Unable to start checkout';
+      toast.error(errorMsg);
     } finally {
       setLoadingPlan(null);
     }

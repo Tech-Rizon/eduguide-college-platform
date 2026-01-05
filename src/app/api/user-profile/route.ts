@@ -38,10 +38,11 @@ export async function GET(request: Request) {
 
     // If profile doesn't exist, return null
     return NextResponse.json({ profile: data || null })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to fetch profile';
     console.error('Error fetching user profile:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to fetch profile' },
+      { error: errorMsg },
       { status: 500 }
     )
   }
@@ -109,10 +110,11 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ profile: data?.[0] })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
     console.error('Error updating user profile:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to update profile' },
+      { error: errorMsg },
       { status: 500 }
     )
   }

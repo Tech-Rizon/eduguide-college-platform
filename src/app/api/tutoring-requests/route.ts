@@ -37,10 +37,11 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ requests: data || [] })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to fetch requests';
     console.error('Error fetching tutoring requests:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to fetch requests' },
+      { error: errorMsg },
       { status: 500 }
     )
   }
@@ -82,10 +83,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ request: data?.[0] }, { status: 201 })
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to create request';
     console.error('Error creating tutoring request:', err)
     return NextResponse.json(
-      { error: err?.message || 'Failed to create request' },
+      { error: errorMsg },
       { status: 500 }
     )
   }

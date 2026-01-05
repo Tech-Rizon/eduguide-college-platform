@@ -18,6 +18,7 @@
     "jsx": "preserve",
     "jsxImportSource": "react",
     "incremental": true,
+    "forceConsistentCasingInFileNames": true,
     "plugins": [
       {
         "name": "next"
