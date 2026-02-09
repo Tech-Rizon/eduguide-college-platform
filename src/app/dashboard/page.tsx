@@ -1,81 +1,53 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  GraduationCap,
-  MessageCircle,
-  Send,
-  User,
-  Bot,
-  Search,
+  type CollegeRecommendation,
+  findMatchingColleges,
+  hasLocation,
+  parseStudentIntent,
+} from "@/lib/collegeRecommendations";
+import { motion } from "framer-motion";
+import {
   BookOpen,
-  Settings,
-  LogOut,
-  Star,
-  MapPin,
+  Bot,
   DollarSign,
-  Users
+  GraduationCap,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  Search,
+  Send,
+  Settings,
+  Star,
+  User,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "ai";
   timestamp: Date;
-  colleges?: College[];
+  colleges?: CollegeRecommendation[];
 }
-
-interface College {
-  id: string;
-  name: string;
-  location: string;
-  type: string;
-  tuition: string;
-  acceptance_rate: string;
-  ranking: number;
-}
-
-const sampleColleges: College[] = [
-  {
-    id: "1",
-    name: "University of California, Los Angeles",
-    location: "Los Angeles, CA",
-    type: "Public University",
-    tuition: "$13,804 (in-state), $43,022 (out-of-state)",
-    acceptance_rate: "12%",
-    ranking: 1
-  },
-  {
-    id: "2",
-    name: "Santa Monica Community College",
-    location: "Santa Monica, CA",
-    type: "Community College",
-    tuition: "$1,380 (in-state), $8,820 (out-of-state)",
-    acceptance_rate: "Open enrollment",
-    ranking: 5
-  },
-  {
-    id: "3",
-    name: "Stanford University",
-    location: "Stanford, CA",
-    type: "Private University",
-    tuition: "$59,394",
-    acceptance_rate: "4%",
-    ranking: 2
-  }
-];
 
 interface DashboardUser {
   firstName: string;
@@ -119,16 +91,23 @@ export default function DashboardPage() {
     const typedAuthUser = authUser as AuthUserExtended;
     setUser({
       id: typedAuthUser.id,
-      firstName: typedAuthUser.firstName || typedAuthUser.user_metadata?.first_name || 'Demo',
-      lastName: typedAuthUser.lastName || typedAuthUser.user_metadata?.last_name || 'User',
-      email: typedAuthUser.email || 'demo@example.com',
-      currentSchool: typedAuthUser.currentSchool || 'Demo School'
+      firstName:
+        typedAuthUser.firstName ||
+        typedAuthUser.user_metadata?.first_name ||
+        "Demo",
+      lastName:
+        typedAuthUser.lastName ||
+        typedAuthUser.user_metadata?.last_name ||
+        "User",
+      email: typedAuthUser.email || "demo@example.com",
+      currentSchool: typedAuthUser.currentSchool || "Demo School",
     });
 
     // Add welcome message
-    setMessages([{
-      id: "welcome",
-      content: `Hi there! I'm your AI college guidance assistant. I'm here to help you find the perfect college or university. I can help you with:
+    setMessages([
+      {
+        id: "welcome",
+        content: `Hi there! I'm your AI college guidance assistant. I'm here to help you find the perfect college or university. I can help you with:
 
 • Finding colleges that match your interests and academic goals
 • Understanding admission requirements
@@ -137,9 +116,10 @@ export default function DashboardPage() {
 • Getting tips for college applications
 
 What would you like to know about colleges today?`,
-      sender: "ai",
-      timestamp: new Date(),
-    }]);
+        sender: "ai",
+        timestamp: new Date(),
+      },
+    ]);
   }, [authUser, loading, router]);
 
   useEffect(() => {
@@ -152,48 +132,77 @@ What would you like to know about colleges today?`,
     return () => clearTimeout(timer);
   }, [messages.length]);
 
-  const simulateAIResponse = (userMessage: string): { content: string; colleges?: College[] } => {
+  const simulateAIResponse = (
+    userMessage: string,
+  ): { content: string; colleges?: CollegeRecommendation[] } => {
     const message = userMessage.toLowerCase();
 
     // For logged in users, access their profile info for more personalized responses
-    const userInfo = user ? `Based on your profile - ${user.firstName} from ${user.currentSchool || 'your school'}` : '';
+    const userInfo = user
+      ? `Based on your profile - ${user.firstName} from ${user.currentSchool || "your school"}`
+      : "";
+    const intent = parseStudentIntent(userMessage);
+    const matchingColleges = findMatchingColleges(intent);
 
-    if (message.includes("california") || message.includes("ca") || message.includes("west coast")) {
+    if (!hasLocation(userMessage)) {
       return {
-        content: `Great choice! California has excellent educational opportunities. ${userInfo ? `${userInfo}, here` : 'Here'} are some colleges in California that might interest you:`,
-        colleges: sampleColleges
+        content: `I can absolutely help you find schools near you. Please share your city and state (example: "Phoenix, AZ"), and I'll recommend colleges in your area with tuition and admission details.`,
       };
     }
 
-    if (message.includes("computer science") || message.includes("engineering") || message.includes("tech")) {
+    if (
+      message.includes("california") ||
+      message.includes("ca") ||
+      message.includes("west coast")
+    ) {
       return {
-        content: `Excellent choice! Computer Science and Engineering are in high demand. ${userInfo ? `${userInfo}, before` : 'Before'} I recommend specific programs, could you tell me:
+        content: `Great choice! California has excellent educational opportunities. ${userInfo ? `${userInfo}, here` : "Here"} are some colleges in California that might interest you:`,
+        colleges: matchingColleges,
+      };
+    }
+
+    if (
+      message.includes("computer science") ||
+      message.includes("engineering") ||
+      message.includes("tech")
+    ) {
+      return {
+        content: `Excellent choice! Computer Science and Engineering are in high demand. ${userInfo ? `${userInfo}, before` : "Before"} I recommend specific programs, could you tell me:
 
 • **What's your current location or preferred state?**
 • **Are you interested in research universities or more practical/applied programs?**
 • **Do you prefer large universities or smaller colleges?**
 
 Here are some top CS/Engineering programs to consider:`,
-        colleges: sampleColleges.slice(0, 2)
+        colleges: matchingColleges,
       };
     }
 
-    if (message.includes("community college") || message.includes("affordable") || message.includes("cheap") || message.includes("budget")) {
+    if (
+      message.includes("community college") ||
+      message.includes("affordable") ||
+      message.includes("cheap") ||
+      message.includes("budget")
+    ) {
       return {
-        content: `Smart thinking! Community colleges are excellent and affordable. ${userInfo ? `${userInfo}, to` : 'To'} help you find the best options:
+        content: `Smart thinking! Community colleges are excellent and affordable. ${userInfo ? `${userInfo}, to` : "To"} help you find the best options:
 
 • **What city/state are you in?** (for local options)
 • **What do you plan to study?**
 • **Are you planning to transfer to a 4-year university later?**
 
 Here's an example of an excellent community college:`,
-        colleges: [sampleColleges[1]]
+        colleges: matchingColleges,
       };
     }
 
-    if (message.includes("requirements") || message.includes("admission") || message.includes("apply")) {
+    if (
+      message.includes("requirements") ||
+      message.includes("admission") ||
+      message.includes("apply")
+    ) {
       return {
-        content: `Great question! ${userInfo ? `${userInfo}, admission` : 'Admission'} requirements vary by school type. To give you specific guidance:
+        content: `Great question! ${userInfo ? `${userInfo}, admission` : "Admission"} requirements vary by school type. To give you specific guidance:
 
 • **What type of schools are you applying to?** (Community college, state university, private university)
 • **What's your current education level?** (High school, GED, transfer student)
@@ -212,13 +221,18 @@ Here's an example of an excellent community college:`,
 • Placement tests for math/English
 • Open enrollment (much easier admission)
 
-Would you like help creating an admission strategy based on your specific situation?`
+Would you like help creating an admission strategy based on your specific situation?`,
       };
     }
 
-    if (message.includes("financial aid") || message.includes("scholarship") || message.includes("money") || message.includes("cost")) {
+    if (
+      message.includes("financial aid") ||
+      message.includes("scholarship") ||
+      message.includes("money") ||
+      message.includes("cost")
+    ) {
       return {
-        content: `I'd love to help with financial aid! ${userInfo ? `${userInfo}, to` : 'To'} give you the most relevant information:
+        content: `I'd love to help with financial aid! ${userInfo ? `${userInfo}, to` : "To"} give you the most relevant information:
 
 • **What's your estimated family income range?** (affects aid eligibility)
 • **Are you a first-generation college student?**
@@ -243,38 +257,40 @@ Would you like help creating an admission strategy based on your specific situat
 • Community foundation scholarships
 • Employer tuition assistance
 
-Would you like help finding specific scholarship opportunities?`
+Would you like help finding specific scholarship opportunities?`,
       };
     }
 
     // Location-based responses
     if (message.includes("texas") || message.includes("tx")) {
       return {
-        content: `Texas has fantastic educational opportunities! ${userInfo ? `${userInfo}, to` : 'To'} help narrow down your options:
+        content: `Texas has fantastic educational opportunities! ${userInfo ? `${userInfo}, to` : "To"} help narrow down your options:
 
 • **What part of Texas?** (Dallas, Houston, Austin, San Antonio, etc.)
 • **Looking for universities or community colleges?**
 • **Interested in any specific programs?**
 
-Texas has excellent public universities like UT Austin, Texas A&M, and many great community colleges with affordable tuition for residents.`
+Texas has excellent public universities like UT Austin, Texas A&M, and many great community colleges with affordable tuition for residents. Here are options based on your location:`,
+        colleges: matchingColleges,
       };
     }
 
     if (message.includes("new york") || message.includes("ny")) {
       return {
-        content: `New York offers incredible educational diversity! ${userInfo ? `${userInfo}, a` : 'A'} few questions to help:
+        content: `New York offers incredible educational diversity! ${userInfo ? `${userInfo}, a` : "A"} few questions to help:
 
 • **NYC area or upstate New York?**
 • **Preferred program of study?**
 • **Budget considerations?** (NYC can be expensive)
 
-NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY and CUNY systems for more affordable options.`
+NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY and CUNY systems for more affordable options. Here are location-based recommendations:`,
+        colleges: matchingColleges,
       };
     }
 
     // Default responses with follow-up questions
     const responses = [
-      `That's a great question! ${userInfo ? `${userInfo}, can` : 'Can'} you tell me more about your specific interests or goals? I'd love to help you find colleges that match what you're looking for.
+      `That's a great question! ${userInfo ? `${userInfo}, can` : "Can"} you tell me more about your specific interests or goals? I'd love to help you find colleges that match what you're looking for.
 
 • **Your preferred location for college**
 • **Your main academic interests**
@@ -286,15 +302,16 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
 • **Any preference for school size or setting?**
 • **Budget considerations?**`,
 
-      `Excellent question! ${userInfo ? `${userInfo}, to` : 'To'} give you the best recommendations, could you share:
+      `Excellent question! ${userInfo ? `${userInfo}, to` : "To"} give you the best recommendations, could you share:
 
 • **What you're most interested in studying**
 • **What state or region interests you**
-• **Your timeline for starting college**`
+• **Your timeline for starting college**`,
     ];
 
     return {
-      content: responses[Math.floor(Math.random() * responses.length)]
+      content: `${responses[Math.floor(Math.random() * responses.length)]}\n\nBased on your location, here are recommended schools to start with:`,
+      colleges: matchingColleges,
     };
   };
 
@@ -308,7 +325,7 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsTyping(true);
 
@@ -323,7 +340,7 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
         colleges: aiResponse.colleges,
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, aiMessage]);
       setIsTyping(false);
     }, 1500);
   };
@@ -343,7 +360,7 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600" />
       </div>
     );
   }
@@ -362,7 +379,8 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
             <div className="flex items-center space-x-4">
               <Avatar>
                 <AvatarFallback>
-                  {user.firstName?.[0]}{user.lastName?.[0]}
+                  {user.firstName?.[0]}
+                  {user.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>
               <span className="text-gray-900">
@@ -392,9 +410,14 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                     <Badge variant="secondary">{messages.length - 1}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Colleges Explored</span>
+                    <span className="text-sm text-gray-600">
+                      Colleges Explored
+                    </span>
                     <Badge variant="secondary">
-                      {messages.reduce((acc, msg) => acc + (msg.colleges?.length || 0), 0)}
+                      {messages.reduce(
+                        (acc, msg) => acc + (msg.colleges?.length || 0),
+                        0,
+                      )}
                     </Badge>
                   </div>
                 </CardContent>
@@ -435,14 +458,22 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
 
           {/* Main Chat Area */}
           <div className="lg:col-span-3">
-            <Card className="flex flex-col" style={{ height: 'calc(100vh - 200px)', minHeight: '600px', maxHeight: '800px' }}>
+            <Card
+              className="flex flex-col"
+              style={{
+                height: "calc(100vh - 200px)",
+                minHeight: "600px",
+                maxHeight: "800px",
+              }}
+            >
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bot className="h-6 w-6 text-blue-600" />
                   <CardTitle>AI College Guidance Assistant</CardTitle>
                 </div>
                 <CardDescription>
-                  Ask me anything about colleges, admissions, or your academic journey!
+                  Ask me anything about colleges, admissions, or your academic
+                  journey!
                 </CardDescription>
               </CardHeader>
 
@@ -457,61 +488,80 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                       >
-                        <div className={`flex space-x-2 max-w-[80%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                        <div
+                          className={`flex space-x-2 max-w-[80%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
+                        >
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                              {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                              {message.sender === "user" ? (
+                                <User className="h-4 w-4" />
+                              ) : (
+                                <Bot className="h-4 w-4" />
+                              )}
                             </AvatarFallback>
                           </Avatar>
 
-                          <div className={`rounded-lg px-4 py-2 ${
-                            message.sender === "user"
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-100 text-gray-900"
-                          }`}>
-                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
+                              message.sender === "user"
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-100 text-gray-900"
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap">
+                              {message.content}
+                            </p>
 
                             {/* College Cards */}
-                            {message.colleges && message.colleges.length > 0 && (
-                              <div className="mt-4 space-y-3">
-                                {message.colleges.map((college) => (
-                                  <Card key={college.id} className="bg-white">
-                                    <CardContent className="p-4">
-                                      <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                          <h4 className="font-semibold text-gray-900">{college.name}</h4>
-                                          <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                            <div className="flex items-center">
-                                              <MapPin className="h-3 w-3 mr-1" />
-                                              {college.location}
-                                            </div>
-                                            <div className="flex items-center">
-                                              <BookOpen className="h-3 w-3 mr-1" />
-                                              {college.type}
-                                            </div>
-                                            <div className="flex items-center">
-                                              <DollarSign className="h-3 w-3 mr-1" />
-                                              {college.tuition}
-                                            </div>
-                                            <div className="flex items-center">
-                                              <Users className="h-3 w-3 mr-1" />
-                                              Acceptance Rate: {college.acceptance_rate}
+                            {message.colleges &&
+                              message.colleges.length > 0 && (
+                                <div className="mt-4 space-y-3">
+                                  {message.colleges.map((college) => (
+                                    <Card key={college.id} className="bg-white">
+                                      <CardContent className="p-4">
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex-1">
+                                            <h4 className="font-semibold text-gray-900">
+                                              {college.name}
+                                            </h4>
+                                            <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                              <div className="flex items-center">
+                                                <MapPin className="h-3 w-3 mr-1" />
+                                                {college.location}
+                                              </div>
+                                              <div className="flex items-center">
+                                                <BookOpen className="h-3 w-3 mr-1" />
+                                                {college.type}
+                                              </div>
+                                              <div className="flex items-center">
+                                                <DollarSign className="h-3 w-3 mr-1" />
+                                                {college.tuition}
+                                              </div>
+                                              <div className="flex items-center">
+                                                <Users className="h-3 w-3 mr-1" />
+                                                Acceptance Rate:{" "}
+                                                {college.acceptanceRate}
+                                              </div>
                                             </div>
                                           </div>
+                                          <div className="flex items-center space-x-1">
+                                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                            <span className="text-sm font-medium">
+                                              #{college.ranking}
+                                            </span>
+                                          </div>
                                         </div>
-                                        <div className="flex items-center space-x-1">
-                                          <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                          <span className="text-sm font-medium">#{college.ranking}</span>
-                                        </div>
-                                      </div>
-                                      <Button size="sm" className="mt-3 w-full">
-                                        Learn More
-                                      </Button>
-                                    </CardContent>
-                                  </Card>
-                                ))}
-                              </div>
-                            )}
+                                        <Button
+                                          size="sm"
+                                          className="mt-3 w-full"
+                                        >
+                                          Learn More
+                                        </Button>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              )}
                           </div>
                         </div>
                       </motion.div>
@@ -555,7 +605,10 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                     onKeyPress={(e) => e.key === "Enter" && sendMessage()}
                     disabled={isTyping}
                   />
-                  <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim()}>
+                  <Button
+                    onClick={sendMessage}
+                    disabled={isTyping || !inputMessage.trim()}
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
