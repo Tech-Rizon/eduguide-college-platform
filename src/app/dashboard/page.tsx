@@ -1,52 +1,46 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/hooks/useAuth";
 import {
-  type CollegeRecommendation,
-  findMatchingColleges,
-  hasLocation,
-  parseStudentIntent,
-} from "@/lib/collegeRecommendations";
-import { motion } from "framer-motion";
-import {
-  BookOpen,
-  Bot,
-  DollarSign,
   GraduationCap,
-  LogOut,
-  MapPin,
   MessageCircle,
-  Search,
   Send,
-  Settings,
-  Star,
   User,
+  Bot,
+  Search,
+  BookOpen,
+  Settings,
+  LogOut,
+  Star,
+  MapPin,
+  DollarSign,
   Users,
+  TrendingUp,
+  Target,
+  Sparkles,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { processMessage, type UserProfile } from "@/lib/aiEngine";
+import type { CollegeEntry } from "@/lib/collegeDatabase";
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "ai";
   timestamp: Date;
-  colleges?: CollegeRecommendation[];
+  colleges?: CollegeEntry[];
 }
 
 interface DashboardUser {
@@ -74,6 +68,7 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -87,233 +82,30 @@ export default function DashboardPage() {
       return;
     }
 
-    // Set user from authentication
     const typedAuthUser = authUser as AuthUserExtended;
+    const firstName = typedAuthUser.firstName || typedAuthUser.user_metadata?.first_name || "Student";
     setUser({
       id: typedAuthUser.id,
-      firstName:
-        typedAuthUser.firstName ||
-        typedAuthUser.user_metadata?.first_name ||
-        "Demo",
-      lastName:
-        typedAuthUser.lastName ||
-        typedAuthUser.user_metadata?.last_name ||
-        "User",
-      email: typedAuthUser.email || "demo@example.com",
-      currentSchool: typedAuthUser.currentSchool || "Demo School",
+      firstName,
+      lastName: typedAuthUser.lastName || typedAuthUser.user_metadata?.last_name || "",
+      email: typedAuthUser.email || "",
+      currentSchool: typedAuthUser.currentSchool || ""
     });
 
-    // Add welcome message
-    setMessages([
-      {
-        id: "welcome",
-        content: `Hi there! I'm your AI college guidance assistant. I'm here to help you find the perfect college or university. I can help you with:
-
-• Finding colleges that match your interests and academic goals
-• Understanding admission requirements
-• Exploring different programs and majors
-• Learning about financial aid and scholarships
-• Getting tips for college applications
-
-What would you like to know about colleges today?`,
-        sender: "ai",
-        timestamp: new Date(),
-      },
-    ]);
+    setMessages([{
+      id: "welcome",
+      content: `Welcome back, ${firstName}! I'm your AI college guidance assistant powered by EduGuide's recommendation engine.\n\nI can analyze your academic profile and match you with the best colleges and universities. Here's what I can help with:\n\n**College Matching** - Tell me your GPA, preferred location, and interests\n**Financial Aid** - Find scholarships and funding options\n**Admissions** - Application requirements and deadlines\n**Community Colleges** - Transfer pathways and affordable options\n**HBCUs** - Historically Black Colleges and Universities\n**Test Prep** - SAT/ACT guidance\n**Essay Help** - Personal statement tips\n\nTry saying: *"My GPA is 3.2 and I'm interested in computer science in California"*`,
+      sender: "ai",
+      timestamp: new Date(),
+    }]);
   }, [authUser, loading, router]);
 
   useEffect(() => {
-    const scrollToBottom = () => {
+    const timer = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    // Use setTimeout to ensure DOM is updated
-    const timer = setTimeout(scrollToBottom, 100);
+    }, 100);
     return () => clearTimeout(timer);
   }, [messages.length]);
-
-  const simulateAIResponse = (
-    userMessage: string,
-  ): { content: string; colleges?: CollegeRecommendation[] } => {
-    const message = userMessage.toLowerCase();
-
-    // For logged in users, access their profile info for more personalized responses
-    const userInfo = user
-      ? `Based on your profile - ${user.firstName} from ${user.currentSchool || "your school"}`
-      : "";
-    const intent = parseStudentIntent(userMessage);
-    const matchingColleges = findMatchingColleges(intent);
-
-    if (!hasLocation(userMessage)) {
-      return {
-        content: `I can absolutely help you find schools near you. Please share your city and state (example: "Phoenix, AZ"), and I'll recommend colleges in your area with tuition and admission details.`,
-      };
-    }
-
-    if (
-      message.includes("california") ||
-      message.includes("ca") ||
-      message.includes("west coast")
-    ) {
-      return {
-        content: `Great choice! California has excellent educational opportunities. ${userInfo ? `${userInfo}, here` : "Here"} are some colleges in California that might interest you:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (
-      message.includes("computer science") ||
-      message.includes("engineering") ||
-      message.includes("tech")
-    ) {
-      return {
-        content: `Excellent choice! Computer Science and Engineering are in high demand. ${userInfo ? `${userInfo}, before` : "Before"} I recommend specific programs, could you tell me:
-
-• **What's your current location or preferred state?**
-• **Are you interested in research universities or more practical/applied programs?**
-• **Do you prefer large universities or smaller colleges?**
-
-Here are some top CS/Engineering programs to consider:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (
-      message.includes("community college") ||
-      message.includes("affordable") ||
-      message.includes("cheap") ||
-      message.includes("budget")
-    ) {
-      return {
-        content: `Smart thinking! Community colleges are excellent and affordable. ${userInfo ? `${userInfo}, to` : "To"} help you find the best options:
-
-• **What city/state are you in?** (for local options)
-• **What do you plan to study?**
-• **Are you planning to transfer to a 4-year university later?**
-
-Here's an example of an excellent community college:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (
-      message.includes("requirements") ||
-      message.includes("admission") ||
-      message.includes("apply")
-    ) {
-      return {
-        content: `Great question! ${userInfo ? `${userInfo}, admission` : "Admission"} requirements vary by school type. To give you specific guidance:
-
-• **What type of schools are you applying to?** (Community college, state university, private university)
-• **What's your current education level?** (High school, GED, transfer student)
-• **Do you have standardized test scores?** (SAT/ACT)
-
-**General Requirements:**
-
-**Universities:**
-• High school diploma/GED + SAT/ACT scores
-• GPA typically 2.5-4.0 (varies by school)
-• Letters of recommendation & personal essay
-• Extracurricular activities
-
-**Community Colleges:**
-• High school diploma/GED
-• Placement tests for math/English
-• Open enrollment (much easier admission)
-
-Would you like help creating an admission strategy based on your specific situation?`,
-      };
-    }
-
-    if (
-      message.includes("financial aid") ||
-      message.includes("scholarship") ||
-      message.includes("money") ||
-      message.includes("cost")
-    ) {
-      return {
-        content: `I'd love to help with financial aid! ${userInfo ? `${userInfo}, to` : "To"} give you the most relevant information:
-
-• **What's your estimated family income range?** (affects aid eligibility)
-• **Are you a first-generation college student?**
-• **What state do you live in?** (for state-specific aid)
-• **Any special circumstances?** (military, athletics, academic achievements)
-
-**Here are the main funding options:**
-
-**Federal Aid (file FAFSA):**
-• Pell Grants (up to $7,000+/year, don't repay)
-• Federal student loans
-• Work-study programs
-
-**Scholarships:**
-• Merit-based (academic performance)
-• Need-based aid
-• Field-specific scholarships
-• Athletic/extracurricular scholarships
-
-**State & Local:**
-• State grant programs
-• Community foundation scholarships
-• Employer tuition assistance
-
-Would you like help finding specific scholarship opportunities?`,
-      };
-    }
-
-    // Location-based responses
-    if (message.includes("texas") || message.includes("tx")) {
-      return {
-        content: `Texas has fantastic educational opportunities! ${userInfo ? `${userInfo}, to` : "To"} help narrow down your options:
-
-• **What part of Texas?** (Dallas, Houston, Austin, San Antonio, etc.)
-• **Looking for universities or community colleges?**
-• **Interested in any specific programs?**
-
-Texas has excellent public universities like UT Austin, Texas A&M, and many great community colleges with affordable tuition for residents. Here are options based on your location:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (message.includes("new york") || message.includes("ny")) {
-      return {
-        content: `New York offers incredible educational diversity! ${userInfo ? `${userInfo}, a` : "A"} few questions to help:
-
-• **NYC area or upstate New York?**
-• **Preferred program of study?**
-• **Budget considerations?** (NYC can be expensive)
-
-NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY and CUNY systems for more affordable options. Here are location-based recommendations:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    // Default responses with follow-up questions
-    const responses = [
-      `That's a great question! ${userInfo ? `${userInfo}, can` : "Can"} you tell me more about your specific interests or goals? I'd love to help you find colleges that match what you're looking for.
-
-• **Your preferred location for college**
-• **Your main academic interests**
-• **Whether you prefer universities or community colleges**`,
-
-      `I'd be happy to help with that! ${userInfo ? `${userInfo}, what's` : "What's"} your current academic situation? Are you in high school, community college, or looking to transfer?
-
-• **What do you want to study?**
-• **Any preference for school size or setting?**
-• **Budget considerations?**`,
-
-      `Excellent question! ${userInfo ? `${userInfo}, to` : "To"} give you the best recommendations, could you share:
-
-• **What you're most interested in studying**
-• **What state or region interests you**
-• **Your timeline for starting college**`,
-    ];
-
-    return {
-      content: `${responses[Math.floor(Math.random() * responses.length)]}\n\nBased on your location, here are recommended schools to start with:`,
-      colleges: matchingColleges,
-    };
-  };
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -325,13 +117,20 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputMessage;
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate AI response delay
+    // Process with AI engine
     setTimeout(() => {
-      const aiResponse = simulateAIResponse(inputMessage);
+      const aiResponse = processMessage(currentInput, userProfile, user?.firstName);
+
+      // Update user profile with extracted info
+      if (aiResponse.profileUpdates) {
+        setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse.content,
@@ -340,9 +139,13 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
         colleges: aiResponse.colleges,
       };
 
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
-    }, 1500);
+    }, 800 + Math.random() * 700);
+  };
+
+  const handleQuickAction = (prompt: string) => {
+    setInputMessage(prompt);
   };
 
   const handleLogout = async () => {
@@ -350,8 +153,7 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
       await signOut();
       toast.success("Logged out successfully!");
       router.push("/");
-    } catch (error) {
-      console.error("Error signing out:", error);
+    } catch {
       toast.success("Logged out successfully!");
       router.push("/");
     }
@@ -365,6 +167,9 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
     );
   }
 
+  const collegesExplored = messages.reduce((acc, msg) => acc + (msg.colleges?.length || 0), 0);
+  const profileCompleteness = [userProfile.gpa, userProfile.state, userProfile.intendedMajor, userProfile.budget].filter(Boolean).length;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -377,13 +182,21 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
             </Link>
 
             <div className="flex items-center space-x-4">
+              <Link href="/colleges">
+                <Button variant="ghost" size="sm">Colleges</Button>
+              </Link>
+              <Link href="/services">
+                <Button variant="ghost" size="sm">Services</Button>
+              </Link>
+              <Link href="/feedback">
+                <Button variant="ghost" size="sm">Feedback</Button>
+              </Link>
               <Avatar>
                 <AvatarFallback>
-                  {user.firstName?.[0]}
-                  {user.lastName?.[0]}
+                  {user.firstName?.[0]}{user.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-gray-900">
+              <span className="text-gray-900 hidden sm:inline">
                 {user.firstName} {user.lastName}
               </span>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -399,10 +212,58 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="space-y-6">
+              {/* Profile Completeness */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    Your Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${(profileCompleteness / 4) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">{profileCompleteness}/4 details shared</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">GPA</span>
+                      <Badge variant={userProfile.gpa ? "default" : "secondary"}>
+                        {userProfile.gpa || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Location</span>
+                      <Badge variant={userProfile.state ? "default" : "secondary"}>
+                        {userProfile.state || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Major</span>
+                      <Badge variant={userProfile.intendedMajor ? "default" : "secondary"}>
+                        {userProfile.intendedMajor || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Budget</span>
+                      <Badge variant={userProfile.budget ? "default" : "secondary"}>
+                        {userProfile.budget || "Not set"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Quick Stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Your Journey</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    Your Journey
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -410,15 +271,8 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                     <Badge variant="secondary">{messages.length - 1}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Colleges Explored
-                    </span>
-                    <Badge variant="secondary">
-                      {messages.reduce(
-                        (acc, msg) => acc + (msg.colleges?.length || 0),
-                        0,
-                      )}
-                    </Badge>
+                    <span className="text-sm text-gray-600">Colleges Explored</span>
+                    <Badge variant="secondary">{collegesExplored}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -426,31 +280,40 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
               {/* Quick Actions */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Quick Actions</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    Quick Prompts
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Find colleges that match my profile")}>
                     <Search className="mr-2 h-4 w-4" />
-                    Find Colleges
+                    Find Matching Colleges
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Tell me about community colleges")}>
                     <BookOpen className="mr-2 h-4 w-4" />
-                    Application Tips
+                    Community Colleges
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("What financial aid options are available?")}>
                     <DollarSign className="mr-2 h-4 w-4" />
-                    Financial Aid
+                    Financial Aid Help
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Help me with admissions requirements")}>
+                    <Target className="mr-2 h-4 w-4" />
+                    Admissions Guide
                   </Button>
                   <Link href="/tutoring-support">
-                    <Button variant="ghost" className="w-full justify-start">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
                       <MessageCircle className="mr-2 h-4 w-4" />
                       Get Tutoring Help
                     </Button>
                   </Link>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Profile Settings
-                  </Button>
+                  <Link href="/profile">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
@@ -458,27 +321,22 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
 
           {/* Main Chat Area */}
           <div className="lg:col-span-3">
-            <Card
-              className="flex flex-col"
-              style={{
-                height: "calc(100vh - 200px)",
-                minHeight: "600px",
-                maxHeight: "800px",
-              }}
-            >
+            <Card className="flex flex-col" style={{ height: "calc(100vh - 200px)", minHeight: "600px", maxHeight: "850px" }}>
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bot className="h-6 w-6 text-blue-600" />
                   <CardTitle>AI College Guidance Assistant</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Smart Matching
+                  </Badge>
                 </div>
                 <CardDescription>
-                  Ask me anything about colleges, admissions, or your academic
-                  journey!
+                  Share your GPA, location, and interests for personalized college recommendations
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="flex-1 flex flex-col min-h-0">
-                {/* Messages */}
                 <ScrollArea className="flex-1 min-h-0 pr-4">
                   <div className="space-y-4 pb-4">
                     {messages.map((message) => (
@@ -488,102 +346,97 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                       >
-                        <div
-                          className={`flex space-x-2 max-w-[80%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
-                        >
-                          <Avatar className="h-8 w-8">
+                        <div className={`flex space-x-2 max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                          <Avatar className="h-8 w-8 flex-shrink-0">
                             <AvatarFallback>
-                              {message.sender === "user" ? (
-                                <User className="h-4 w-4" />
-                              ) : (
-                                <Bot className="h-4 w-4" />
-                              )}
+                              {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                             </AvatarFallback>
                           </Avatar>
 
-                          <div
-                            className={`rounded-lg px-4 py-2 ${
-                              message.sender === "user"
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-100 text-gray-900"
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap">
-                              {message.content}
-                            </p>
+                          <div className={`rounded-lg px-4 py-3 ${
+                            message.sender === "user"
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-900"
+                          }`}>
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
 
-                            {/* College Cards */}
-                            {message.colleges &&
-                              message.colleges.length > 0 && (
-                                <div className="mt-4 space-y-3">
-                                  {message.colleges.map((college) => (
-                                    <Card key={college.id} className="bg-white">
-                                      <CardContent className="p-4">
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <h4 className="font-semibold text-gray-900">
-                                              {college.name}
-                                            </h4>
-                                            <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                              <div className="flex items-center">
-                                                <MapPin className="h-3 w-3 mr-1" />
-                                                {college.location}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <BookOpen className="h-3 w-3 mr-1" />
-                                                {college.type}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <DollarSign className="h-3 w-3 mr-1" />
-                                                {college.tuition}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <Users className="h-3 w-3 mr-1" />
-                                                Acceptance Rate:{" "}
-                                                {college.acceptanceRate}
-                                              </div>
+                            {message.colleges && message.colleges.length > 0 && (
+                              <div className="mt-4 space-y-3">
+                                {message.colleges.map((college) => (
+                                  <Card key={college.id} className="bg-white border shadow-sm">
+                                    <CardContent className="p-4">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <h4 className="font-semibold text-gray-900 flex items-center gap-1">
+                                            {college.name}
+                                            <a href={college.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          </h4>
+                                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              {college.location}
                                             </div>
+                                            <div className="flex items-center">
+                                              <BookOpen className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              {college.type}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <DollarSign className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              {college.tuition}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <Users className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              Acceptance: {college.acceptanceRate} | Graduation: {college.graduationRate}%
+                                            </div>
+                                            {college.avgGPA > 0 && (
+                                              <div className="flex items-center">
+                                                <TrendingUp className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                Avg GPA: {college.avgGPA} | Aid: {college.financialAidPercent}% of students
+                                              </div>
+                                            )}
                                           </div>
-                                          <div className="flex items-center space-x-1">
-                                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                            <span className="text-sm font-medium">
-                                              #{college.ranking}
-                                            </span>
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {college.majors.slice(0, 4).map(m => (
+                                              <Badge key={m} variant="secondary" className="text-xs">{m}</Badge>
+                                            ))}
+                                            {college.majors.length > 4 && (
+                                              <Badge variant="secondary" className="text-xs">+{college.majors.length - 4} more</Badge>
+                                            )}
                                           </div>
                                         </div>
-                                        <Button
-                                          size="sm"
-                                          className="mt-3 w-full"
-                                        >
-                                          Learn More
-                                        </Button>
-                                      </CardContent>
-                                    </Card>
-                                  ))}
-                                </div>
-                              )}
+                                        <div className="flex flex-col items-center ml-3">
+                                          <div className="flex items-center space-x-1">
+                                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                            <span className="text-sm font-medium">#{college.ranking}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <p className="mt-2 text-xs text-gray-500">{college.description}</p>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </motion.div>
                     ))}
 
                     {isTyping && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex justify-start"
-                      >
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                         <div className="flex space-x-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              <Bot className="h-4 w-4" />
-                            </AvatarFallback>
+                            <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
                           </Avatar>
-                          <div className="bg-gray-100 rounded-lg px-4 py-2">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-100" />
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-200" />
+                          <div className="bg-gray-100 rounded-lg px-4 py-3">
+                            <div className="flex space-x-1 items-center">
+                              <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
+                              <span className="text-xs text-gray-500 mr-2">Analyzing...</span>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
                             </div>
                           </div>
                         </div>
@@ -596,19 +449,15 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
 
                 <Separator className="my-4" />
 
-                {/* Message Input */}
                 <div className="flex space-x-2">
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask me about colleges, admissions, or anything related to your education..."
-                    onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder='Try: "My GPA is 3.2 and I want to study nursing in Texas"'
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                     disabled={isTyping}
                   />
-                  <Button
-                    onClick={sendMessage}
-                    disabled={isTyping || !inputMessage.trim()}
-                  >
+                  <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim()}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>

@@ -1,23 +1,25 @@
-name: CI
+name: EduGuide CI/CD
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [main, claude/*]
+  pull_request:
+    branches: [main]
 
 jobs:
-  checks:
+  build:
+    name: Build & Lint
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -25,5 +27,28 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Production build
+      - name: Build application
         run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: nextjs-build
+          path: .next/
+          retention-days: 7
+
+  deploy-preview:
+    name: Deploy Preview
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy status
+        run: echo "Preview deployment would be triggered for PR #${{ github.event.pull_request.number }}"
