@@ -54,3 +54,6 @@ logs
 
 # Bun
 .bun
+
+# Git bundles
+*.bundle
