@@ -1,27 +1,38 @@
 "use client";
 
 import { useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
+import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
 
-    // Get initial user
-    supabase.auth.getUser().then(({ data }: { data: any }) => {
-      if (!mounted) return
-      setUser(data.user ?? null)
-      setLoading(false)
-    })
+    // Get initial session and user
+    const initAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
+        if (!mounted) return
+        setSession(currentSession ?? null)
+        setUser(currentSession?.user ?? null)
+      } catch {
+        // Gracefully handle missing Supabase config
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    initAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, newSession: any) => {
       if (!mounted) return
-      setUser(session?.user ?? null)
+      setSession(newSession ?? null)
+      setUser(newSession?.user ?? null)
     })
 
     return () => {
@@ -61,6 +72,7 @@ export function useAuth() {
     try {
       const { error } = await supabase.auth.signOut()
       setUser(null)
+      setSession(null)
       return { error }
     } catch (error) {
       return { error }
@@ -89,13 +101,24 @@ export function useAuth() {
     }
   }
 
+  const getSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession()
+      return { data, error }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
   return {
     user,
+    session,
     loading,
     signUp,
     signIn,
     signOut,
     updatePassword,
-    resetPassword
+    resetPassword,
+    getSession
   }
 }
