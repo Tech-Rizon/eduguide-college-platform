@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+<<<<<<< HEAD
+=======
+import { Badge } from "@/components/ui/badge";
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,16 +24,31 @@ import {
   DollarSign,
   Users,
   BookOpen,
+<<<<<<< HEAD
   Info
 } from "lucide-react";
 import Link from "next/link";
+=======
+  Info,
+  TrendingUp,
+  Sparkles,
+  ExternalLink
+} from "lucide-react";
+import Link from "next/link";
+import { processMessage, type UserProfile } from "@/lib/aiEngine";
+import type { CollegeEntry } from "@/lib/collegeDatabase";
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "ai";
   timestamp: Date;
+<<<<<<< HEAD
   colleges?: College[];
+=======
+  colleges?: CollegeEntry[];
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 }
 
 interface College {
@@ -77,9 +96,11 @@ export default function DemoPage() {
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+<<<<<<< HEAD
     // Add welcome message
     setMessages([{
       id: "welcome",
@@ -96,19 +117,22 @@ I'm your AI college guidance advisor. I can help you with:
 Try asking me something like "What colleges are good for computer science in California?" or "Tell me about financial aid options"
 
 Create an account to save your preferences and get even more personalized guidance based on your academic profile!`,
+=======
+    setMessages([{
+      id: "welcome",
+      content: `Welcome to the EduGuide AI Assistant Demo!\n\nI'm a smart college guidance advisor that can match you with the best schools based on your profile. Try me out!\n\n**Here's what I can do:**\n- Match colleges based on your GPA, location, and interests\n- Advise on financial aid and scholarships\n- Guide you through admission requirements\n- Compare community colleges, universities, and HBCUs\n\n**Try saying:**\n- "My GPA is 3.0 and I'm in Texas"\n- "I want to study computer science in California"\n- "What affordable community colleges are available?"\n- "Tell me about HBCUs"\n\nCreate an account for unlimited access and saved preferences!`,
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
       sender: "ai",
       timestamp: new Date(),
     }]);
   }, []);
 
   useEffect(() => {
-    const scrollToBottom = () => {
+    const timer = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    // Use setTimeout to ensure DOM is updated
-    const timer = setTimeout(scrollToBottom, 100);
+    }, 100);
     return () => clearTimeout(timer);
+<<<<<<< HEAD
   }, [messages]);
 
   const simulateAIResponse = (userMessage: string): { content: string; colleges?: College[] } => {
@@ -287,15 +311,21 @@ Register to access our complete database and get AI-powered recommendations tail
       content: responses[Math.floor(Math.random() * responses.length)]
     };
   };
+=======
+  }, [messages.length]);
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
 
-    // Limit demo to 5 messages
     if (messageCount >= 5) {
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
+<<<<<<< HEAD
         content: "Demo limit reached! Create an account to continue chatting with unlimited messages and get personalized recommendations.",
+=======
+        content: "You've reached the demo limit of 5 messages. Create a free account to get unlimited AI guidance, save your profile, and access our full college database!",
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
         sender: "ai",
         timestamp: new Date(),
       }]);
@@ -310,13 +340,21 @@ Register to access our complete database and get AI-powered recommendations tail
     };
 
     setMessages(prev => [...prev, userMessage]);
+<<<<<<< HEAD
+=======
+    const currentInput = inputMessage;
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
     setInputMessage("");
     setIsTyping(true);
     setMessageCount(prev => prev + 1);
 
-    // Simulate AI response delay
     setTimeout(() => {
-      const aiResponse = simulateAIResponse(inputMessage);
+      const aiResponse = processMessage(currentInput, userProfile);
+
+      if (aiResponse.profileUpdates) {
+        setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse.content,
@@ -327,18 +365,16 @@ Register to access our complete database and get AI-powered recommendations tail
 
       setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
-    }, 1500);
+    }, 800 + Math.random() * 700);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
           <GraduationCap className="h-8 w-8 text-blue-600" />
           <span className="text-2xl font-bold text-gray-900">EduGuide</span>
         </Link>
-
         <div className="flex items-center space-x-4">
           <Link href="/">
             <Button variant="ghost">
@@ -353,10 +389,10 @@ Register to access our complete database and get AI-powered recommendations tail
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Demo Notice */}
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Info className="h-4 w-4" />
           <AlertDescription>
+<<<<<<< HEAD
             <strong>Demo Mode:</strong> You can send up to 5 messages in this demo.
             <Link href="/register" className="text-blue-600 hover:underline ml-1">
               Create an account
@@ -365,23 +401,40 @@ Register to access our complete database and get AI-powered recommendations tail
         </Alert>
 
         <Card className="flex flex-col" style={{ height: 'calc(100vh - 300px)', minHeight: '500px', maxHeight: '700px' }}>
+=======
+            <strong>Demo Mode:</strong> You can send up to 5 messages. The AI will analyze your GPA, location, and interests to recommend schools.
+            <Link href="/register" className="text-blue-600 hover:underline ml-1">
+              Create an account
+            </Link> for unlimited access!
+          </AlertDescription>
+        </Alert>
+
+        <Card className="flex flex-col" style={{ height: "calc(100vh - 300px)", minHeight: "500px", maxHeight: "700px" }}>
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Bot className="h-6 w-6 text-blue-600" />
-                <CardTitle>AI College Guidance Assistant - Demo</CardTitle>
+                <CardTitle>AI College Guidance - Demo</CardTitle>
+                <Badge variant="secondary">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Smart Matching
+                </Badge>
               </div>
               <div className="text-sm text-gray-500">
                 Messages: {messageCount}/5
               </div>
             </div>
             <CardDescription>
+<<<<<<< HEAD
               Try our AI assistant and see how it can help with your college journey!
+=======
+              Try our AI: share your GPA, location, and goals for personalized college matches!
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
             </CardDescription>
           </CardHeader>
 
           <CardContent className="flex-1 flex flex-col min-h-0">
-            {/* Messages */}
             <ScrollArea className="flex-1 min-h-0 pr-4">
               <div className="space-y-4 pb-4">
                 {messages.map((message) => (
@@ -391,55 +444,101 @@ Register to access our complete database and get AI-powered recommendations tail
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                   >
+<<<<<<< HEAD
                     <div className={`flex space-x-2 max-w-[80%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
                       <Avatar className="h-8 w-8">
+=======
+                    <div className={`flex space-x-2 max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                         <AvatarFallback>
                           {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                         </AvatarFallback>
                       </Avatar>
 
+<<<<<<< HEAD
                       <div className={`rounded-lg px-4 py-2 ${
+=======
+                      <div className={`rounded-lg px-4 py-3 ${
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                         message.sender === "user"
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-900"
                       }`}>
+<<<<<<< HEAD
                         <p className="whitespace-pre-wrap">{message.content}</p>
+=======
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 
-                        {/* College Cards */}
                         {message.colleges && message.colleges.length > 0 && (
                           <div className="mt-4 space-y-3">
                             {message.colleges.map((college) => (
-                              <Card key={college.id} className="bg-white">
+                              <Card key={college.id} className="bg-white border shadow-sm">
                                 <CardContent className="p-4">
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1">
+<<<<<<< HEAD
                                       <h4 className="font-semibold text-gray-900">{college.name}</h4>
+=======
+                                      <h4 className="font-semibold text-gray-900 flex items-center gap-1">
+                                        {college.name}
+                                        <a href={college.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      </h4>
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                                       <div className="mt-2 space-y-1 text-sm text-gray-600">
                                         <div className="flex items-center">
-                                          <MapPin className="h-3 w-3 mr-1" />
+                                          <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
                                           {college.location}
                                         </div>
                                         <div className="flex items-center">
-                                          <BookOpen className="h-3 w-3 mr-1" />
+                                          <BookOpen className="h-3 w-3 mr-1 flex-shrink-0" />
                                           {college.type}
                                         </div>
                                         <div className="flex items-center">
-                                          <DollarSign className="h-3 w-3 mr-1" />
+                                          <DollarSign className="h-3 w-3 mr-1 flex-shrink-0" />
                                           {college.tuition}
                                         </div>
                                         <div className="flex items-center">
+<<<<<<< HEAD
                                           <Users className="h-3 w-3 mr-1" />
                                           Acceptance Rate: {college.acceptance_rate}
+=======
+                                          <Users className="h-3 w-3 mr-1 flex-shrink-0" />
+                                          Acceptance: {college.acceptanceRate} | Graduation: {college.graduationRate}%
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                                         </div>
+                                        {college.avgGPA > 0 && (
+                                          <div className="flex items-center">
+                                            <TrendingUp className="h-3 w-3 mr-1 flex-shrink-0" />
+                                            Avg GPA: {college.avgGPA} | Aid: {college.financialAidPercent}% receive aid
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {college.majors.slice(0, 3).map(m => (
+                                          <Badge key={m} variant="secondary" className="text-xs">{m}</Badge>
+                                        ))}
+                                        {college.majors.length > 3 && (
+                                          <Badge variant="secondary" className="text-xs">+{college.majors.length - 3} more</Badge>
+                                        )}
                                       </div>
                                     </div>
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center space-x-1 ml-2">
                                       <Star className="h-4 w-4 text-yellow-500 fill-current" />
                                       <span className="text-sm font-medium">#{college.ranking}</span>
                                     </div>
                                   </div>
+<<<<<<< HEAD
                                   <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-2 rounded">
                                     💡 Create an account to get detailed info and apply!
+=======
+                                  <p className="mt-2 text-xs text-gray-500">{college.description}</p>
+                                  <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                    Create an account for detailed analytics and application tracking!
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                                   </div>
                                 </CardContent>
                               </Card>
@@ -452,22 +551,26 @@ Register to access our complete database and get AI-powered recommendations tail
                 ))}
 
                 {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex justify-start"
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                     <div className="flex space-x-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
+                        <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
                       </Avatar>
+<<<<<<< HEAD
                       <div className="bg-gray-100 rounded-lg px-4 py-2">
                         <div className="flex space-x-1">
                           <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
                             <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-100" />
                             <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-200" />
+=======
+                      <div className="bg-gray-100 rounded-lg px-4 py-3">
+                        <div className="flex space-x-1 items-center">
+                          <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
+                          <span className="text-xs text-gray-500 mr-2">Analyzing...</span>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                         </div>
                       </div>
                     </div>
@@ -480,19 +583,20 @@ Register to access our complete database and get AI-powered recommendations tail
 
             <Separator className="my-4" />
 
-            {/* Message Input */}
             <div className="flex space-x-2">
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
+<<<<<<< HEAD
                 placeholder={messageCount >= 5 ? "Demo limit reached - create an account to continue!" : "Try asking: 'What colleges are good in California?'"}
                 onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+=======
+                placeholder={messageCount >= 5 ? "Demo limit reached - create an account!" : 'Try: "My GPA is 3.5 and I want to study nursing"'}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
                 disabled={isTyping || messageCount >= 5}
               />
-              <Button
-                onClick={sendMessage}
-                disabled={isTyping || !inputMessage.trim() || messageCount >= 5}
-              >
+              <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim() || messageCount >= 5}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
@@ -510,7 +614,6 @@ Register to access our complete database and get AI-powered recommendations tail
           </CardContent>
         </Card>
 
-        {/* CTA Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -519,7 +622,11 @@ Register to access our complete database and get AI-powered recommendations tail
         >
           <h2 className="text-2xl font-bold mb-4">Ready for the Full Experience?</h2>
           <p className="text-lg mb-6 opacity-90">
+<<<<<<< HEAD
             Create your account to get unlimited AI assistance, personalized recommendations, and access to our complete college database.
+=======
+            Create your account for unlimited AI assistance, saved preferences, and access to our complete college database with 40+ institutions.
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">

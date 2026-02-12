@@ -4,7 +4,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
  
 let _supabase: any;
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 // Stub used when Supabase env vars are missing (CI builds, server-side rendering)
 const createStub = () => ({
 	auth: {
@@ -19,11 +23,15 @@ const createStub = () => ({
 	},
 	from: () => ({ select: async () => ({ data: null, error: new Error("Supabase not available") }) }),
 } as any);
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 if (typeof window !== "undefined") {
-	// Client-side: create the real Supabase client (requires NEXT_PUBLIC_* env vars during build)
 	if (!supabaseUrl || !supabaseAnonKey) {
 		console.warn("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.");
+<<<<<<< HEAD
 		// Create a stub to prevent crashes if env vars are missing
 		_supabase = {
 			auth: {
@@ -36,11 +44,14 @@ if (typeof window !== "undefined") {
 			},
 			from: () => ({ select: async () => ({ data: null, error: new Error("Supabase not available") }) }),
 		} as any;
+=======
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 		_supabase = createStub();
 	} else {
 		_supabase = createClient(supabaseUrl, supabaseAnonKey);
 	}
 } else {
+<<<<<<< HEAD
 	// Server-side stub to avoid build-time crashes when env vars are not set in CI
 	_supabase = {
 		auth: {
@@ -56,6 +67,11 @@ if (typeof window !== "undefined") {
 	_supabase = createStub();
 }
  
+=======
+	_supabase = createStub();
+}
+
+>>>>>>> fc99699d32e667aba5e6f454d728214b06fd71b6
 export const supabase = _supabase as any;
 			signOut: async () => ({ error: new Error("Supabase not available on server") }),
 			updateUser: async () => ({ data: null, error: new Error("Supabase not available on server") }),
