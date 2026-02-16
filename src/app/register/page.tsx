@@ -61,8 +61,8 @@ const registerSchema = z.object({
   graduationYear: z.string().min(4, "Graduation year is required"),
   highSchool: z.string().optional(),
   highSchoolGradYear: z.string().optional(),
-  acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: "You must accept the Terms of Service and Privacy Policy" }),
+  acceptTerms: z.boolean().refine((value) => value, {
+    message: "You must accept the Terms of Service and Privacy Policy",
   }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",

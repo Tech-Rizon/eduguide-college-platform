@@ -77,16 +77,46 @@ function LoginPageContent() {
 
     setIsLoading(true);
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { data: signInData, error } = await signIn(data.email, data.password);
 
       if (error) {
         throw error;
       }
 
+      let targetRoute = redirectTo;
+
+      if (!searchParams.get("redirect")) {
+        const accessToken = signInData?.session?.access_token;
+
+        if (accessToken) {
+          try {
+            const roleResponse = await fetch("/api/user-role", {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            });
+
+            if (roleResponse.ok) {
+              const rolePayload = await roleResponse.json();
+              const resolvedRole = rolePayload?.role;
+
+              if (["tutor", "staff", "admin"].includes(resolvedRole)) {
+                targetRoute = "/staff/dashboard";
+              } else {
+                targetRoute = "/dashboard";
+              }
+            }
+          } catch {
+            // Fallback to student dashboard when role service is unavailable
+            targetRoute = "/dashboard";
+          }
+        }
+      }
+
       setLoginAttempts(0);
       setLockoutUntil(null);
       toast.success("Welcome back!");
-      router.push(redirectTo);
+      router.push(targetRoute);
     } catch (error: any) {
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
