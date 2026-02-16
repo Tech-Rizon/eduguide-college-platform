@@ -39,9 +39,9 @@ jobs:
               # Remove existing, then add fresh
               vercel env rm "$name" "$ENV" --yes --token="$TOKEN" 2>/dev/null || true
               echo "$value" | vercel env add "$name" "$ENV" --token="$TOKEN" --force 2>/dev/null || true
-              echo "✓ Synced $name to $ENV"
+              echo "Synced $name to $ENV"
             else
-              echo "⚠ Skipped $name (empty/not set)"
+              echo "Skipped $name (empty/not set)"
             fi
           }
 
@@ -51,6 +51,17 @@ jobs:
           sync_var "NEXT_PUBLIC_SUPABASE_ANON_KEY" "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
           sync_var "SUPABASE_URL" "${{ secrets.SUPABASE_URL }}"
           sync_var "SUPABASE_SERVICE_ROLE_KEY" "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          sync_var "STRIPE_SECRET_KEY" "${{ secrets.STRIPE_SECRET_KEY }}"
+          sync_var "STRIPE_WEBHOOK_SECRET" "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+          sync_var "NEXT_PUBLIC_STRIPE_PRICE_BASIC" "${{ secrets.NEXT_PUBLIC_STRIPE_PRICE_BASIC }}"
+          sync_var "NEXT_PUBLIC_STRIPE_PRICE_PREMIUM" "${{ secrets.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM }}"
+          sync_var "NEXT_PUBLIC_STRIPE_PRICE_ELITE" "${{ secrets.NEXT_PUBLIC_STRIPE_PRICE_ELITE }}"
+          sync_var "NEXT_PUBLIC_SITE_URL" "${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          sync_var "SENDGRID_API_KEY" "${{ secrets.SENDGRID_API_KEY }}"
+          sync_var "CONTACT_TO_EMAIL" "${{ secrets.CONTACT_TO_EMAIL }}"
+          sync_var "ADMIN_BOOTSTRAP_TOKEN" "${{ secrets.ADMIN_BOOTSTRAP_TOKEN }}"
+          sync_var "ADMIN_SEED_EMAIL" "${{ secrets.ADMIN_SEED_EMAIL }}"
+          sync_var "ADMIN_SEED_PASSWORD" "${{ secrets.ADMIN_SEED_PASSWORD }}"
 
           echo "=== Sync complete ==="
 
