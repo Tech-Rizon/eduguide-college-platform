@@ -1,4 +1,4 @@
-name: EduGuide CI/CD
+name: EduGuide CI
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build & Lint
+    name: Build & Type Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,15 +39,3 @@ jobs:
           name: nextjs-build
           path: .next/
           retention-days: 7
-
-  deploy-preview:
-    name: Deploy Preview
-    needs: build
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy status
-        run: echo "Preview deployment would be triggered for PR #${{ github.event.pull_request.number }}"

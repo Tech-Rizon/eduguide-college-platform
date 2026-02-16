@@ -208,7 +208,7 @@ All tables have RLS enabled with the following policies:
 
 ## Production Deployment
 
-When deploying to Vercel/Netlify:
+When deploying to Vercel:
 
 1. Set all environment variables in hosting platform settings
 2. Use the same Supabase project or create a production project

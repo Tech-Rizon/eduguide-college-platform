@@ -99,7 +99,7 @@ export default function RegisterPage() {
       graduationYear: "",
       highSchool: "",
       highSchoolGradYear: "",
-      acceptTerms: undefined as unknown as true,
+      acceptTerms: false,
     },
   });
 
@@ -513,8 +513,8 @@ export default function RegisterPage() {
                           <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mt-6">
                             <FormControl>
                               <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
+                                checked={Boolean(field.value)}
+                                onCheckedChange={(checked) => field.onChange(Boolean(checked))}
                               />
                             </FormControl>
                             <div className="space-y-1 leading-none">

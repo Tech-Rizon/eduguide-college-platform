@@ -78,7 +78,7 @@ Response: { request: { id, ... }, status: 201 }
 - **`next.config.js`**: Removed `output: 'export'` to enable server-side functionality
   - This allows API routes, webhooks, and Supabase server-side operations
   - Project now requires Node.js runtime (not static export)
-  - Deployment platforms: Vercel, Netlify, or any Node.js host
+  - Deployment platforms: Vercel or any Node.js host
 
 ## Setup Instructions
 
@@ -179,12 +179,6 @@ All tables have Row-Level Security (RLS) enabled with policies:
 2. Set environment variables in Vercel dashboard
 3. Deploy - API routes work automatically
 
-### For Netlify
-1. Migrations run once manually in Supabase dashboard
-2. Set environment variables in Netlify dashboard
-3. Use Netlify Functions for serverless - your Next.js API routes will work
-4. Configure build command: `npm run build` (already set)
-
 ### For Self-Hosted
 1. Ensure Node.js 18+ is available
 2. Run migrations in Supabase dashboard
@@ -228,7 +222,7 @@ See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed schema documentation i
 3. ✅ Test API endpoints locally
 4. ✅ Integrate APIs into React components (dashboard, profile page)
 5. ✅ Set up authentication flow to auto-create user_profiles and user_settings
-6. ✅ Deploy to Vercel or Netlify
+6. ✅ Deploy to Vercel
 7. ✅ Configure Stripe webhooks for payment processing
 
 ## Integration Example
