@@ -291,7 +291,11 @@ export default function HomePage() {
               </Button>
             </Link>
             <Link href="/demo">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-white border-white hover:bg-white hover:text-blue-600">
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600"
+              >
                 Try AI Demo
               </Button>
             </Link>

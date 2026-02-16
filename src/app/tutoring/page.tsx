@@ -199,10 +199,12 @@ export default function TutoringPage() {
             We support students through every milestone of their journey: from college admission prep to graduating with confidence.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-lg px-8 py-6">
-              Request Academic Support Now
-              <MessageCircle className="ml-2 h-5 w-5" />
-            </Button>
+            <Link href="#support-plans">
+              <Button size="lg" className="text-lg px-8 py-6">
+                Request Academic Support Now
+                <MessageCircle className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </motion.div>
 
@@ -342,6 +344,7 @@ export default function TutoringPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.1, duration: 0.6 }}
           className="mb-16"
+          id="support-plans"
         >
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
             Choose Your Support Level
@@ -484,7 +487,11 @@ export default function TutoringPage() {
               Start Free Trial
               <ArrowLeft className="ml-2 h-5 w-5 rotate-180" />
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-white border-white hover:bg-white hover:text-blue-600">
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600"
+            >
               Talk to an Advisor
               <MessageCircle className="ml-2 h-5 w-5" />
             </Button>
