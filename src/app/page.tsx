@@ -103,7 +103,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Tell us your GPA, location, and goals. Our AI analyzes your profile against 40+ colleges to find your best matches - including community colleges, universities, and HBCUs.
+                Tell us your GPA, location, and goals. Our AI analyzes your profile against 40+ colleges to find your best matches - including community colleges and universities.
               </p>
               <Link href="/demo">
                 <Button variant="link" className="mt-2 p-0">Try it now &rarr;</Button>
@@ -242,7 +242,7 @@ export default function HomePage() {
               },
               {
                 name: "James T.",
-                quote: "As a first-gen student, the HBCU recommendations changed my life. Now I'm at Howard University.",
+                quote: "As a first-gen student, the recommendations changed my life. Now I'm at Howard University.",
                 rating: 5
               },
               {

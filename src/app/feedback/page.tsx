@@ -44,7 +44,7 @@ const existingReviews: Review[] = [
     name: "James T.",
     rating: 5,
     category: "College Discovery",
-    comment: "As a first-generation student, I had no idea where to start. EduGuide's AI understood my situation and recommended HBCUs I never would have found on my own. Now I'm at Howard!",
+    comment: "As a first-generation student, I had no idea where to start. EduGuide's AI understood my situation and recommended schools I never would have found on my own. Now I'm thriving!",
     date: "2026-01-10",
     helpful: 18
   },

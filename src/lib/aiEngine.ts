@@ -154,7 +154,6 @@ function extractSchoolType(message: string): string[] | undefined {
       types.push("Public University", "Private University");
     }
   }
-  if (lower.match(/\b(hbcu|historically black|black college)\b/)) types.push("HBCU");
   if (lower.match(/\b(technical|trade|vocational)\b/)) types.push("Technical College");
 
   return types.length > 0 ? types : undefined;
@@ -303,7 +302,6 @@ function detectIntent(message: string): string {
   if (lower.match(/\b(community college|cc|transfer|2[\s-]?year|two[\s-]?year)\b/)) return "community-college";
   if (lower.match(/\b(compare|vs|versus|difference|better|between)\b/)) return "comparison";
   if (lower.match(/\b(major|study|program|degree|field|career)\b/)) return "major-selection";
-  if (lower.match(/\b(hbcu|historically black|black college)\b/)) return "hbcu";
   if (lower.match(/\b(online|distance|remote|virtual)\b/)) return "online-learning";
   if (lower.match(/\b(test|sat|act|exam|standardized|prep)\b/)) return "test-prep";
   if (lower.match(/\b(essay|personal statement|sop|statement of purpose)\b/)) return "essay-help";
@@ -457,17 +455,6 @@ export function processMessage(
       };
     }
 
-    case "hbcu": {
-      const hbcuProfile = { ...updatedProfile, schoolType: ["HBCU" as const] };
-      const hbcuRecs = collegeDatabase.filter(c => c.type === "HBCU");
-
-      return {
-        content: `HBCUs (Historically Black Colleges and Universities) are incredible institutions with rich history and strong communities!\n\n**Why Consider an HBCU?**\n- **Strong Community**: Supportive environment with mentorship and belonging\n- **Leadership Development**: HBCUs produce a disproportionate number of Black leaders in every field\n- **Financial Aid**: Many HBCUs offer generous scholarships (85-92% of students receive aid)\n- **Networking**: Powerful alumni networks in business, government, and entertainment\n- **Cultural Pride**: Rich traditions and vibrant campus life\n\n**Notable HBCU Facts:**\n- Produce 40% of Black engineers\n- Produce 50% of Black teachers\n- Produce 70% of Black dentists and physicians\n- Notable alumni: Martin Luther King Jr., Thurgood Marshall, Oprah Winfrey, Kamala Harris\n\nHere are some top HBCUs:`,
-        colleges: hbcuRecs.length > 0 ? hbcuRecs : getRecommendations(hbcuProfile, 4),
-        profileUpdates,
-      };
-    }
-
     case "major-selection": {
       let response = "";
 
@@ -552,7 +539,7 @@ export function processMessage(
 
         response = `Thanks for sharing! I've updated your profile with: **${updateSummary.join(" | ")}**\n\nBased on what I know about you, here are my recommendations:`;
       } else {
-        response = `I'd be happy to help you explore your college options! To give you the most relevant recommendations, could you share:\n\n**About You:**\n- Your current GPA (e.g., "My GPA is 3.2")\n- Your location or preferred state\n- What you'd like to study\n\n**Preferences:**\n- Budget level (affordable, moderate, or flexible)\n- School type (community college, university, HBCU)\n- Any special circumstances (first-generation, transfer, military, etc.)\n\nThe more you share, the better I can match you with the right schools! Here are some popular options to start:`;
+        response = `I'd be happy to help you explore your college options! To give you the most relevant recommendations, could you share:\n\n**About You:**\n- Your current GPA (e.g., "My GPA is 3.2")\n- Your location or preferred state\n- What you'd like to study\n\n**Preferences:**\n- Budget level (affordable, moderate, or flexible)\n- School type (community college, university)\n- Any special circumstances (first-generation, transfer, military, etc.)\n\nThe more you share, the better I can match you with the right schools! Here are some popular options to start:`;
       }
 
       return { content: response, colleges: recs, profileUpdates };

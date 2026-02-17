@@ -4,7 +4,7 @@ export interface CollegeEntry {
   location: string;
   state: string;
   city: string;
-  type: "Community College" | "Public University" | "Private University" | "HBCU" | "Technical College";
+  type: "Community College" | "Public University" | "Private University" | "Technical College";
   tuitionInState: number;
   tuitionOutState: number;
   tuition: string;
@@ -579,7 +579,7 @@ export const collegeDatabase: CollegeEntry[] = [
     location: "Atlanta, GA",
     state: "GA",
     city: "Atlanta",
-    type: "HBCU",
+    type: "Private University",
     tuitionInState: 30814,
     tuitionOutState: 30814,
     tuition: "$30,814",
@@ -590,13 +590,13 @@ export const collegeDatabase: CollegeEntry[] = [
     ranking: 56,
     enrollmentSize: 2300,
     majors: ["Biology", "Psychology", "Political Science", "English", "Computer Science", "Mathematics", "Economics"],
-    tags: ["hbcu", "women-only", "liberal-arts", "diverse", "small", "community"],
+    tags: ["women-only", "liberal-arts", "diverse", "small", "community"],
     satRange: "1100-1280",
     actRange: "23-28",
     financialAidPercent: 90,
     avgAidAmount: 18000,
     graduationRate: 76,
-    description: "The top-ranked HBCU for women known for producing leaders in STEM, business, and public service.",
+    description: "A top-ranked women's college known for producing leaders in STEM, business, and public service.",
     website: "https://www.spelman.edu",
     region: "South"
   },
@@ -606,7 +606,7 @@ export const collegeDatabase: CollegeEntry[] = [
     location: "Atlanta, GA",
     state: "GA",
     city: "Atlanta",
-    type: "HBCU",
+    type: "Private University",
     tuitionInState: 29468,
     tuitionOutState: 29468,
     tuition: "$29,468",
@@ -617,13 +617,13 @@ export const collegeDatabase: CollegeEntry[] = [
     ranking: 60,
     enrollmentSize: 2200,
     majors: ["Business", "Biology", "Computer Science", "Political Science", "Psychology", "Cinema & Media", "Music"],
-    tags: ["hbcu", "men-only", "liberal-arts", "diverse", "small", "leadership"],
+    tags: ["men-only", "liberal-arts", "diverse", "small", "leadership"],
     satRange: "1060-1240",
     actRange: "21-27",
     financialAidPercent: 92,
     avgAidAmount: 17000,
     graduationRate: 68,
-    description: "A prestigious HBCU for men that has produced leaders like Martin Luther King Jr. and Spike Lee.",
+    description: "A prestigious men's college that has produced leaders like Martin Luther King Jr. and Spike Lee.",
     website: "https://www.morehouse.edu",
     region: "South"
   },
@@ -938,7 +938,7 @@ export const collegeDatabase: CollegeEntry[] = [
     location: "Washington, DC",
     state: "DC",
     city: "Washington",
-    type: "HBCU",
+    type: "Private University",
     tuitionInState: 30786,
     tuitionOutState: 30786,
     tuition: "$30,786",
@@ -949,13 +949,13 @@ export const collegeDatabase: CollegeEntry[] = [
     ranking: 80,
     enrollmentSize: 12000,
     majors: ["Biology", "Nursing", "Communications", "Political Science", "Business", "Computer Science", "Psychology", "Film"],
-    tags: ["hbcu", "research", "diverse", "urban", "leadership", "arts"],
+    tags: ["research", "diverse", "urban", "leadership", "arts"],
     satRange: "1090-1280",
     actRange: "22-28",
     financialAidPercent: 85,
     avgAidAmount: 16000,
     graduationRate: 65,
-    description: "The nation's top research HBCU producing leaders in every field from politics to entertainment.",
+    description: "A top research university producing leaders in every field from politics to entertainment.",
     website: "https://www.howard.edu",
     region: "South"
   },
@@ -1134,7 +1134,7 @@ export const collegeDatabase: CollegeEntry[] = [
     location: "Baton Rouge, LA",
     state: "LA",
     city: "Baton Rouge",
-    type: "HBCU",
+    type: "Public University",
     tuitionInState: 8878,
     tuitionOutState: 19936,
     tuition: "$8,878 (in-state) / $19,936 (out-of-state)",
@@ -1145,13 +1145,13 @@ export const collegeDatabase: CollegeEntry[] = [
     ranking: 120,
     enrollmentSize: 7000,
     majors: ["Nursing", "Criminal Justice", "Business", "Engineering", "Biology", "Computer Science", "Education", "Social Work"],
-    tags: ["hbcu", "affordable", "diverse", "mid-range", "leadership", "athletics"],
+    tags: ["affordable", "diverse", "mid-range", "leadership", "athletics"],
     satRange: "910-1090",
     actRange: "17-22",
     financialAidPercent: 90,
     avgAidAmount: 9000,
     graduationRate: 33,
-    description: "A major HBCU system offering affordable education and strong community connections in Louisiana.",
+    description: "A major university system offering affordable education and strong community connections in Louisiana.",
     website: "https://www.subr.edu",
     region: "South"
   },
