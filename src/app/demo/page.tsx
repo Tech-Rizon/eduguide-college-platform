@@ -49,7 +49,7 @@ export default function DemoPage() {
   useEffect(() => {
     setMessages([{
       id: "welcome",
-      content: `Welcome to the EduGuide AI Assistant Demo!\n\nI'm a smart college guidance advisor that can match you with the best schools based on your profile. Try me out!\n\n**Here's what I can do:**\n- Match colleges based on your GPA, location, and interests\n- Advise on financial aid and scholarships\n- Guide you through admission requirements\n- Compare community colleges, universities, and HBCUs\n\n**Try saying:**\n- "My GPA is 3.0 and I'm in Texas"\n- "I want to study computer science in California"\n- "What affordable community colleges are available?"\n- "Tell me about HBCUs"\n\nCreate an account for unlimited access and saved preferences!`,
+      content: `Welcome to the EduGuide AI Assistant Demo!\n\nI'm a smart college guidance advisor that can match you with the best schools based on your profile. Try me out!\n\n**Here's what I can do:**\n- Match colleges based on your GPA, location, and interests\n- Advise on financial aid and scholarships\n- Guide you through admission requirements\n- Compare community colleges and universities\n\n**Try saying:**\n- "My GPA is 3.0 and I'm in Texas"\n- "I want to study computer science in California"\n- "What affordable community colleges are available?"\n- "Tell me about universities"\n\nCreate an account for unlimited access and saved preferences!`,
       sender: "ai",
       timestamp: new Date(),
     }]);
