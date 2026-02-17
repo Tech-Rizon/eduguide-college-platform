@@ -261,7 +261,6 @@ function CollegeCard({ college }: { college: CollegeEntry }) {
     "Community College": "bg-green-100 text-green-700",
     "Public University": "bg-blue-100 text-blue-700",
     "Private University": "bg-purple-100 text-purple-700",
-    "HBCU": "bg-orange-100 text-orange-700",
     "Technical College": "bg-gray-100 text-gray-700",
   };
 

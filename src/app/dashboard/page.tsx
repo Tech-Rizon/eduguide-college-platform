@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
     setMessages([{
       id: "welcome",
-      content: `Welcome back, ${firstName}! I'm your AI college guidance assistant powered by EduGuide's recommendation engine.\n\nI can analyze your academic profile and match you with the best colleges and universities. Here's what I can help with:\n\n**College Matching** - Tell me your GPA, preferred location, and interests\n**Financial Aid** - Find scholarships and funding options\n**Admissions** - Application requirements and deadlines\n**Community Colleges** - Transfer pathways and affordable options\n**HBCUs** - Historically Black Colleges and Universities\n**Test Prep** - SAT/ACT guidance\n**Essay Help** - Personal statement tips\n\nTry saying: *"My GPA is 3.2 and I'm interested in computer science in California"*`,
+      content: `Welcome back, ${firstName}! I'm your AI college guidance assistant powered by EduGuide's recommendation engine.\n\nI can analyze your academic profile and match you with the best colleges and universities. Here's what I can help with:\n\n**College Matching** - Tell me your GPA, preferred location, and interests\n**Financial Aid** - Find scholarships and funding options\n**Admissions** - Application requirements and deadlines\n**Community Colleges** - Transfer pathways and affordable options\n**Test Prep** - SAT/ACT guidance\n**Essay Help** - Personal statement tips\n\nTry saying: *"My GPA is 3.2 and I'm interested in computer science in California"*`,
       sender: "ai",
       timestamp: new Date(),
     }]);

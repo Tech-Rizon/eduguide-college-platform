@@ -34,7 +34,7 @@ const services = [
       "GPA-based college matching",
       "Location and state preferences",
       "Budget-aware recommendations",
-      "Community college & HBCU discovery",
+      "Community college discovery",
       "Transfer pathway guidance",
       "Major/career alignment"
     ],
