@@ -36,7 +36,6 @@ const TRADING_SYSTEM_KEYWORDS = [
   "order block",
   "liquidity sweep",
   "choch",
-  "bos",
   "backtest",
   "paper trading",
   "risk orchestrator",
