@@ -36,7 +36,8 @@ export async function POST(request: Request) {
           full_name: 'EduGuide Admin',
         },
         app_metadata: {
-          role: 'admin',
+          role: 'staff',
+          staff_level: 'super_admin',
           backend_only: true,
         },
       })
@@ -46,7 +47,8 @@ export async function POST(request: Request) {
     } else {
       const { error: updateError } = await supabaseServer.auth.admin.updateUserById(userId, {
         app_metadata: {
-          role: 'admin',
+          role: 'staff',
+          staff_level: 'super_admin',
           backend_only: true,
         },
       })
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
 
     const { error: roleError } = await supabaseServer
       .from('user_roles')
-      .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' })
+      .upsert({ user_id: userId, role: 'staff', staff_level: 'super_admin' }, { onConflict: 'user_id' })
 
     if (roleError) throw roleError
 

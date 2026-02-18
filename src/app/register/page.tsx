@@ -108,6 +108,7 @@ export default function RegisterPage() {
     () => getPasswordStrength(watchedPassword || ""),
     [watchedPassword]
   );
+  const passwordStrengthWidthClass = ["w-0", "w-1/5", "w-2/5", "w-3/5", "w-4/5", "w-full"][passwordStrength.score];
 
   const nextStep = async () => {
     let isValid = false;
@@ -322,8 +323,7 @@ export default function RegisterPage() {
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                                     <div
-                                      className={`h-full rounded-full transition-all duration-300 ${passwordStrength.color}`}
-                                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                                      className={`h-full rounded-full transition-all duration-300 ${passwordStrength.color} ${passwordStrengthWidthClass}`}
                                     />
                                   </div>
                                   <span className={`text-xs font-medium ${

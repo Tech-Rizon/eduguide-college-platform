@@ -31,7 +31,11 @@ After your project is created:
 
 ### Step 3: Apply Database Migrations
 
-There are two migration files to apply:
+Quick option: run one combined script file:
+- `db/supabase_all_in_one.sql`
+
+Manual option: run individual migration files in order:
+There are five migration files to apply:
 
 #### Migration 1: Payments Table
 File: `db/migrations/20260104_create_payments_table.sql`
@@ -51,6 +55,33 @@ File: `db/migrations/20260105_create_user_and_tutoring_tables.sql`
 4. Paste into the SQL editor
 5. Click **Run**
 
+#### Migration 3: Roles & Dashboard Tables
+File: `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
+
+1. In Supabase, go to **SQL Editor**
+2. Click **New Query**
+3. Copy the entire contents of `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
+4. Paste into the SQL editor
+5. Click **Run**
+
+#### Migration 4: Role Normalization (Student/Staff + Staff Levels)
+File: `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
+
+1. In Supabase, go to **SQL Editor**
+2. Click **New Query**
+3. Copy the entire contents of `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
+4. Paste into the SQL editor
+5. Click **Run**
+
+#### Migration 5: Backoffice Ticketing + Auto Assignment
+File: `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
+
+1. In Supabase, go to **SQL Editor**
+2. Click **New Query**
+3. Copy the entire contents of `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
+4. Paste into the SQL editor
+5. Click **Run**
+
 ### Step 4: Verify Tables Were Created
 
 1. Go to **Table Editor** in Supabase dashboard
@@ -59,6 +90,13 @@ File: `db/migrations/20260105_create_user_and_tutoring_tables.sql`
    - `user_profiles`
    - `user_settings`
    - `tutoring_requests`
+   - `user_roles`
+   - `student_dashboard_metrics`
+   - `staff_dashboard_metrics`
+   - `admin_audit_logs`
+   - `support_requests`
+   - `backoffice_tickets`
+   - `backoffice_ticket_events`
 
 ### Step 5: Configure Authentication
 
@@ -169,6 +207,13 @@ Stores tutoring session requests.
 - `status` - Status (new/assigned/in_progress/completed)
 - `assigned_tutor_id` - Tutor assigned to request (optional)
 - `scheduled_date` - Scheduled date/time (optional)
+- `created_at`, `updated_at` - Timestamps
+
+### user_roles
+Stores user access roles and staff hierarchy.
+- `user_id` - User ID (matches auth.users)
+- `role` - Top-level role (`student` or `staff`)
+- `staff_level` - Required when role is `staff` (`tutor`, `support`, `manager`, `super_admin`)
 - `created_at`, `updated_at` - Timestamps
 
 ## Security Features

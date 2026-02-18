@@ -169,6 +169,7 @@ export default function DashboardPage() {
 
   const collegesExplored = messages.reduce((acc, msg) => acc + (msg.colleges?.length || 0), 0);
   const profileCompleteness = [userProfile.gpa, userProfile.state, userProfile.intendedMajor, userProfile.budget].filter(Boolean).length;
+  const profileCompletenessWidthClass = ["w-0", "w-1/4", "w-2/4", "w-3/4", "w-full"][profileCompleteness];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,8 +224,7 @@ export default function DashboardPage() {
                 <CardContent className="space-y-3">
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${(profileCompleteness / 4) * 100}%` }}
+                      className={`bg-blue-600 h-2 rounded-full transition-all duration-500 ${profileCompletenessWidthClass}`}
                     />
                   </div>
                   <p className="text-xs text-gray-500">{profileCompleteness}/4 details shared</p>
@@ -321,7 +321,7 @@ export default function DashboardPage() {
 
           {/* Main Chat Area */}
           <div className="lg:col-span-3">
-            <Card className="flex flex-col" style={{ height: "calc(100vh - 200px)", minHeight: "600px", maxHeight: "850px" }}>
+            <Card className="flex flex-col h-[calc(100vh-200px)] min-h-[600px] max-h-[850px]">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bot className="h-6 w-6 text-blue-600" />
@@ -347,7 +347,7 @@ export default function DashboardPage() {
                         className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div className={`flex space-x-2 max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
-                          <Avatar className="h-8 w-8 flex-shrink-0">
+                          <Avatar className="h-8 w-8 shrink-0">
                             <AvatarFallback>
                               {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                             </AvatarFallback>
@@ -369,30 +369,38 @@ export default function DashboardPage() {
                                         <div className="flex-1">
                                           <h4 className="font-semibold text-gray-900 flex items-center gap-1">
                                             {college.name}
-                                            <a href={college.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                            <a
+                                              href={college.website}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800"
+                                              title={`Visit ${college.name} website`}
+                                              aria-label={`Visit ${college.name} website`}
+                                            >
                                               <ExternalLink className="h-3 w-3" />
+                                              <span className="sr-only">Visit {college.name} website</span>
                                             </a>
                                           </h4>
                                           <div className="mt-2 space-y-1 text-sm text-gray-600">
                                             <div className="flex items-center">
-                                              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              <MapPin className="h-3 w-3 mr-1 shrink-0" />
                                               {college.location}
                                             </div>
                                             <div className="flex items-center">
-                                              <BookOpen className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              <BookOpen className="h-3 w-3 mr-1 shrink-0" />
                                               {college.type}
                                             </div>
                                             <div className="flex items-center">
-                                              <DollarSign className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              <DollarSign className="h-3 w-3 mr-1 shrink-0" />
                                               {college.tuition}
                                             </div>
                                             <div className="flex items-center">
-                                              <Users className="h-3 w-3 mr-1 flex-shrink-0" />
+                                              <Users className="h-3 w-3 mr-1 shrink-0" />
                                               Acceptance: {college.acceptanceRate} | Graduation: {college.graduationRate}%
                                             </div>
                                             {college.avgGPA > 0 && (
                                               <div className="flex items-center">
-                                                <TrendingUp className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                <TrendingUp className="h-3 w-3 mr-1 shrink-0" />
                                                 Avg GPA: {college.avgGPA} | Aid: {college.financialAidPercent}% of students
                                               </div>
                                             )}
@@ -435,8 +443,8 @@ export default function DashboardPage() {
                               <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
                               <span className="text-xs text-gray-500 mr-2">Analyzing...</span>
                               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-100" />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
                             </div>
                           </div>
                         </div>

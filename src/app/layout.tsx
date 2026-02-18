@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Get personalized AI-powered college guidance, discover the perfect college based on your GPA and goals, and navigate your educational future with confidence.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

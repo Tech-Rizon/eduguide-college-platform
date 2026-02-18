@@ -57,6 +57,7 @@ function LoginPageContent() {
   const { signIn } = useAuth();
 
   const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const mfaRequired = searchParams.get("mfa") === "required";
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -98,10 +99,17 @@ function LoginPageContent() {
 
             if (roleResponse.ok) {
               const rolePayload = await roleResponse.json();
-              const resolvedRole = rolePayload?.role;
+              const isStaffView =
+                typeof rolePayload?.isStaffView === "boolean"
+                  ? rolePayload.isStaffView
+                  : ["tutor", "staff", "admin"].includes(rolePayload?.role);
+              const dashboardPath =
+                typeof rolePayload?.dashboardPath === "string"
+                  ? rolePayload.dashboardPath
+                  : "/staff/dashboard";
 
-              if (["tutor", "staff", "admin"].includes(resolvedRole)) {
-                targetRoute = "/staff/dashboard";
+              if (isStaffView) {
+                targetRoute = dashboardPath;
               } else {
                 targetRoute = "/dashboard";
               }
@@ -168,9 +176,21 @@ function LoginPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {mfaRequired && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">MFA verification required</p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      Manager and super admin actions require a verified MFA session (AAL2).
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {isLockedOut && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-red-800">Account temporarily locked</p>
                     <p className="text-xs text-red-600 mt-1">

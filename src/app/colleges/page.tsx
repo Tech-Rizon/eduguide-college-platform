@@ -293,24 +293,24 @@ function CollegeCard({ college }: { college: CollegeEntry }) {
 
         <div className="space-y-2 text-sm text-gray-600 flex-1">
           <div className="flex items-center">
-            <MapPin className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+            <MapPin className="h-3.5 w-3.5 mr-1.5 shrink-0 text-gray-400" />
             {college.location}
           </div>
           <div className="flex items-center">
-            <DollarSign className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+            <DollarSign className="h-3.5 w-3.5 mr-1.5 shrink-0 text-gray-400" />
             <span className="truncate">{college.tuition}</span>
           </div>
           <div className="flex items-center">
-            <Users className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+            <Users className="h-3.5 w-3.5 mr-1.5 shrink-0 text-gray-400" />
             Acceptance: {college.acceptanceRate}
           </div>
           <div className="flex items-center">
-            <TrendingUp className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+            <TrendingUp className="h-3.5 w-3.5 mr-1.5 shrink-0 text-gray-400" />
             Graduation: {college.graduationRate}% | Aid: {college.financialAidPercent}%
           </div>
           {college.avgGPA > 0 && (
             <div className="flex items-center">
-              <BookOpen className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+              <BookOpen className="h-3.5 w-3.5 mr-1.5 shrink-0 text-gray-400" />
               Avg GPA: {college.avgGPA} | Enrollment: {college.enrollmentSize.toLocaleString()}
             </div>
           )}
