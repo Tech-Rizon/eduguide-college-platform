@@ -24,6 +24,34 @@ export interface AIResponse {
   followUpQuestions?: string[];
 }
 
+const TRADING_SYSTEM_KEYWORDS = [
+  "fx",
+  "forex",
+  "xauusd",
+  "mt5",
+  "oanda",
+  "broker",
+  "take profit",
+  "stop loss",
+  "order block",
+  "liquidity sweep",
+  "choch",
+  "bos",
+  "backtest",
+  "paper trading",
+  "risk orchestrator",
+  "position sizing",
+  "trailing stop",
+  "kill switch",
+  "flatten positions",
+  "trade execution",
+];
+
+function isOutOfScopeTradingRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return TRADING_SYSTEM_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
 // State abbreviation mapping
 const stateMap: Record<string, string> = {
   "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
@@ -315,6 +343,18 @@ export function processMessage(
   currentProfile: UserProfile,
   userName?: string
 ): AIResponse {
+  if (isOutOfScopeTradingRequest(userMessage)) {
+    return {
+      content: "I can’t help with live or simulated trading system design, execution, or risk controls in this EduGuide assistant. I’m scoped to college guidance only (school matching, admissions, financial aid, and tutoring support). If you want, I can still help with education planning or college recommendations.",
+      profileUpdates: {},
+      followUpQuestions: [
+        "What GPA should I use for your college matches?",
+        "Which state or region are you targeting for school?",
+        "What major or career path are you considering?",
+      ],
+    };
+  }
+
   const intent = detectIntent(userMessage);
   const profileUpdates: Partial<UserProfile> = {};
 
