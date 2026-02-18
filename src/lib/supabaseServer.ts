@@ -21,20 +21,52 @@ const createStubServer = () =>
         updateUserById: async () => ({ data: { user: null }, error: notConfiguredError }),
       },
     },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: null, error: notConfiguredError }),
-        }),
-        order: async () => ({ data: [], error: notConfiguredError }),
+    from: () => createQueryStub(),
+    rpc: async () => ({ data: null, error: notConfiguredError }),
+    storage: {
+      from: () => ({
+        createSignedUploadUrl: async () => ({ data: null, error: notConfiguredError }),
+        createSignedUrl: async () => ({ data: null, error: notConfiguredError }),
       }),
-      insert: async () => ({ data: null, error: notConfiguredError }),
-      upsert: async () => ({ data: null, error: notConfiguredError }),
-      update: () => ({
-        eq: () => ({ select: async () => ({ data: null, error: notConfiguredError }) }),
-      }),
-    }),
+    },
   } as any)
+
+function createQueryStub() {
+  let expectManyRows = true
+
+  const buildResult = () => ({
+    data: expectManyRows ? [] : null,
+    error: notConfiguredError,
+  })
+
+  const proxy = new Proxy(
+    {
+      then: (resolve: (value: { data: unknown; error: Error }) => void) => resolve(buildResult()),
+      single: async () => {
+        expectManyRows = false
+        return buildResult()
+      },
+      maybeSingle: async () => {
+        expectManyRows = false
+        return buildResult()
+      },
+    } as Record<string, any>,
+    {
+      get: (target, prop: string) => {
+        if (prop in target) return target[prop]
+
+        return (..._args: unknown[]) => {
+          if (prop === 'insert' || prop === 'upsert' || prop === 'update' || prop === 'delete') {
+            expectManyRows = false
+          }
+          return proxy
+        }
+      },
+    }
+  )
+
+  return proxy
+}
 
 export const supabaseServer =
   supabaseUrl && serviceRoleKey
