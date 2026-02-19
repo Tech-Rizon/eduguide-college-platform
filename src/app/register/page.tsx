@@ -153,7 +153,7 @@ export default function RegisterPage() {
       }
 
       toast.success("Account created! Please check your email to verify your account.");
-      router.push("/dashboard");
+      router.push("/login?registered=1");
     } catch (error: any) {
       console.error("Registration error:", error);
       const message = error?.message || "Registration failed. Please try again.";

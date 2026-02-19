@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { sanitizeRelativeRedirect } from "@/lib/redirects";
 
 type StaffAccessPayload = {
   role: "student" | "staff";
@@ -66,12 +67,14 @@ export function useStaffAccess(options: UseStaffAccessOptions = {}) {
         }
 
         if (payload.mfaRequired) {
-          router.replace("/login?mfa=required");
+          const staffDashboard = sanitizeRelativeRedirect(payload.dashboardPath, "/staff/dashboard");
+          const mfaTarget = sanitizeRelativeRedirect(pathname, staffDashboard);
+          router.replace(`/mfa/setup?redirect=${encodeURIComponent(mfaTarget)}`);
           return;
         }
 
         if (allowedLevels?.length && (!payload.staffLevel || !allowedLevels.includes(payload.staffLevel))) {
-          router.replace(payload.dashboardPath || redirectUnauthorizedTo);
+          router.replace(sanitizeRelativeRedirect(payload.dashboardPath, redirectUnauthorizedTo));
           return;
         }
 

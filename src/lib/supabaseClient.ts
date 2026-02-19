@@ -16,6 +16,12 @@ const createStub = () => ({
 		signOut: async () => ({ error: new Error("Supabase environment variables not configured") }),
 		updateUser: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
 		resetPasswordForEmail: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+		mfa: {
+			listFactors: async () => ({ data: { all: [], totp: [], phone: [] }, error: new Error("Supabase environment variables not configured") }),
+			enroll: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+			challenge: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+			verify: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+		},
 	},
 	from: () => ({ select: async () => ({ data: null, error: new Error("Supabase not available") }) }),
 } as any);

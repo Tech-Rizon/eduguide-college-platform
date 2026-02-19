@@ -43,11 +43,16 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string, userData?: Record<string, unknown>) => {
     try {
+      const emailRedirectBase =
+        typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL
+      const emailRedirectTo = emailRedirectBase ? `${emailRedirectBase}/login?verified=1` : undefined
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData
+          data: userData,
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
         }
       })
       return { data, error }

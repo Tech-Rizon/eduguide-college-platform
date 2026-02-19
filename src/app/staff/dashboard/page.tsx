@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { sanitizeRelativeRedirect } from "@/lib/redirects";
 
 export default function StaffDashboardDispatcherPage() {
   const { user, session, loading } = useAuth();
@@ -35,7 +36,19 @@ export default function StaffDashboardDispatcherPage() {
         }
 
         const payload = await response.json();
-        const destination = typeof payload?.dashboardPath === "string" ? payload.dashboardPath : "/dashboard";
+        const destination = sanitizeRelativeRedirect(
+          typeof payload?.dashboardPath === "string" ? payload.dashboardPath : null,
+          "/dashboard"
+        );
+        const mfaRequiredForPrivilegedUser =
+          Boolean(payload?.mfaRequired) &&
+          (payload?.staffLevel === "manager" || payload?.staffLevel === "super_admin");
+
+        if (mfaRequiredForPrivilegedUser) {
+          router.replace(`/mfa/setup?redirect=${encodeURIComponent(destination)}`);
+          return;
+        }
+
         router.replace(destination);
       } catch {
         router.replace("/dashboard");

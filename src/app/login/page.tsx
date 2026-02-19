@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { sanitizeRelativeRedirect } from "@/lib/redirects";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -56,8 +57,11 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
 
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const rawRedirectTo = searchParams.get("redirect");
+  const redirectTo = sanitizeRelativeRedirect(rawRedirectTo, "/dashboard");
   const mfaRequired = searchParams.get("mfa") === "required";
+  const registered = searchParams.get("registered") === "1";
+  const verified = searchParams.get("verified") === "1";
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -85,37 +89,48 @@ function LoginPageContent() {
       }
 
       let targetRoute = redirectTo;
+      const accessToken = signInData?.session?.access_token;
 
-      if (!searchParams.get("redirect")) {
-        const accessToken = signInData?.session?.access_token;
+      if (accessToken) {
+        try {
+          const roleResponse = await fetch("/api/user-role", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
-        if (accessToken) {
-          try {
-            const roleResponse = await fetch("/api/user-role", {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
+          if (roleResponse.ok) {
+            const rolePayload = await roleResponse.json();
+            const isStaffView =
+              typeof rolePayload?.isStaffView === "boolean"
+                ? rolePayload.isStaffView
+                : ["tutor", "staff", "admin"].includes(rolePayload?.role);
+            const dashboardPath = sanitizeRelativeRedirect(
+              typeof rolePayload?.dashboardPath === "string" ? rolePayload.dashboardPath : null,
+              "/staff/dashboard"
+            );
+            const mfaRequiredForPrivilegedUser =
+              Boolean(rolePayload?.mfaRequired) &&
+              (rolePayload?.staffLevel === "manager" || rolePayload?.staffLevel === "super_admin");
 
-            if (roleResponse.ok) {
-              const rolePayload = await roleResponse.json();
-              const isStaffView =
-                typeof rolePayload?.isStaffView === "boolean"
-                  ? rolePayload.isStaffView
-                  : ["tutor", "staff", "admin"].includes(rolePayload?.role);
-              const dashboardPath =
-                typeof rolePayload?.dashboardPath === "string"
-                  ? rolePayload.dashboardPath
-                  : "/staff/dashboard";
-
-              if (isStaffView) {
-                targetRoute = dashboardPath;
-              } else {
-                targetRoute = "/dashboard";
-              }
+            if (mfaRequiredForPrivilegedUser) {
+              const mfaTarget = sanitizeRelativeRedirect(rawRedirectTo, dashboardPath);
+              setLoginAttempts(0);
+              setLockoutUntil(null);
+              toast.success("Welcome back!");
+              router.push(`/mfa/setup?redirect=${encodeURIComponent(mfaTarget)}`);
+              return;
             }
-          } catch {
-            // Fallback to student dashboard when role service is unavailable
+
+            if (!rawRedirectTo) {
+              targetRoute = isStaffView ? dashboardPath : "/dashboard";
+            }
+          } else if (!rawRedirectTo) {
+            targetRoute = "/dashboard";
+          }
+        } catch {
+          // Fallback to student dashboard when role service is unavailable
+          if (!rawRedirectTo) {
             targetRoute = "/dashboard";
           }
         }
@@ -176,13 +191,37 @@ function LoginPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {registered && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Account created</p>
+                    <p className="text-xs text-blue-800 mt-1">
+                      Check your email and confirm your account before signing in.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {verified && (
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-900">Email verified</p>
+                    <p className="text-xs text-emerald-800 mt-1">
+                      Your account is confirmed. You can sign in now.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {mfaRequired && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-amber-800">MFA verification required</p>
                     <p className="text-xs text-amber-700 mt-1">
-                      Manager and super admin actions require a verified MFA session (AAL2).
+                      Manager and super admin access requires a verified MFA session (AAL2).
                     </p>
                   </div>
                 </div>
