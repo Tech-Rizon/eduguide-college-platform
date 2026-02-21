@@ -37,6 +37,11 @@ function toErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function isOnConflictTargetMismatch(error: unknown): boolean {
+  const message = toErrorMessage(error, "").toLowerCase();
+  return message.includes("no unique or exclusion constraint matching the on conflict specification");
+}
+
 async function findOpenLiveSupportTicket(
   supabaseUser: ReturnType<typeof createUserScopedSupabaseClient>,
   userId: string
@@ -44,8 +49,8 @@ async function findOpenLiveSupportTicket(
   const { data, error } = await supabaseUser
     .from("backoffice_tickets")
     .select("id, status, priority, assigned_team, assigned_to_user_id, created_at, updated_at")
-    .eq("source_type", "support_request")
     .eq("student_user_id", userId)
+    .eq("category", "support")
     .in("status", OPEN_TICKET_STATUSES as unknown as string[])
     .order("updated_at", { ascending: false })
     .limit(1);
@@ -66,6 +71,23 @@ async function findSupportRequestTicket(
     .select("id, status, priority, assigned_team, assigned_to_user_id, created_at, updated_at")
     .eq("source_type", "support_request")
     .eq("source_id", supportRequestId)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data?.[0] as LiveSupportTicket | undefined) ?? null;
+}
+
+async function findTicketById(
+  supabaseUser: ReturnType<typeof createUserScopedSupabaseClient>,
+  ticketId: string
+): Promise<LiveSupportTicket | null> {
+  const { data, error } = await supabaseUser
+    .from("backoffice_tickets")
+    .select("id, status, priority, assigned_team, assigned_to_user_id, created_at, updated_at")
+    .eq("id", ticketId)
     .limit(1);
 
   if (error) {
@@ -151,6 +173,44 @@ async function ensureBackofficeTicketForSupportRequest(params: {
       throw insertTicketError;
     }
   }
+}
+
+async function createManualSupportTicketFallback(params: {
+  supabaseUser: ReturnType<typeof createUserScopedSupabaseClient>;
+  userId: string;
+  requesterEmail: string;
+  displayName: string;
+  initialMessage: string;
+  priority: string;
+}): Promise<LiveSupportTicket> {
+  const { supabaseUser, userId, requesterEmail, displayName, initialMessage, priority } = params;
+
+  const { data: insertedTicket, error: insertTicketError } = await supabaseServer
+    .from("backoffice_tickets")
+    .insert({
+      source_type: "manual",
+      source_id: null,
+      student_user_id: userId,
+      requester_email: requesterEmail,
+      title: `Live Chat Request: ${displayName}`,
+      description: initialMessage || "User requested a live support conversation.",
+      category: "support",
+      priority,
+      status: "new",
+      assigned_team: "support",
+      created_by_user_id: null,
+    })
+    .select("id, status, priority, assigned_team, assigned_to_user_id, created_at, updated_at")
+    .single();
+
+  if (insertTicketError || !insertedTicket) {
+    throw insertTicketError ?? new Error("Failed to create fallback live support ticket.");
+  }
+
+  await assignSupportAgentIfUnassigned(insertedTicket.id);
+
+  const ticketAfterAssign = await findTicketById(supabaseUser, insertedTicket.id);
+  return ticketAfterAssign ?? (insertedTicket as LiveSupportTicket);
 }
 
 async function assignSupportAgentIfUnassigned(ticketId: string): Promise<void> {
@@ -311,37 +371,51 @@ export async function POST(request: Request) {
       .select("id")
       .single();
 
-    if (supportRequestError) {
-      throw supportRequestError;
-    }
+    let ticket: LiveSupportTicket | null = null;
 
-    let ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
-    if (!ticket) {
-      await ensureBackofficeTicketForSupportRequest({
-        supportRequestId: supportRequest.id,
+    if (supportRequestError && isOnConflictTargetMismatch(supportRequestError)) {
+      ticket = await createManualSupportTicketFallback({
+        supabaseUser,
         userId: access.user.id,
         requesterEmail,
         displayName,
         initialMessage,
         priority,
       });
-      ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
+    } else if (supportRequestError) {
+      throw supportRequestError;
     }
 
-    if (!ticket) {
-      return NextResponse.json(
-        {
-          error:
-            "Support request was saved but no linked backoffice ticket could be loaded. Run the latest DB migrations for backoffice ticket triggers.",
-        },
-        { status: 500 }
-      );
+    if (!ticket && supportRequest?.id) {
+      ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
+      if (!ticket) {
+        await ensureBackofficeTicketForSupportRequest({
+          supportRequestId: supportRequest.id,
+          userId: access.user.id,
+          requesterEmail,
+          displayName,
+          initialMessage,
+          priority,
+        });
+        ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
+      }
+
+      if (!ticket) {
+        return NextResponse.json(
+          {
+            error:
+              "Support request was saved but no linked backoffice ticket could be loaded. Run the latest DB migrations for backoffice ticket triggers.",
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!ticket.assigned_to_user_id) {
+        await assignSupportAgentIfUnassigned(ticket.id);
+        ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
+      }
     }
 
-    if (!ticket.assigned_to_user_id) {
-      await assignSupportAgentIfUnassigned(ticket.id);
-      ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);
-    }
     if (!ticket) {
       return NextResponse.json({ error: "Live support ticket could not be loaded after assignment step." }, { status: 500 });
     }

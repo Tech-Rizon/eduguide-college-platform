@@ -600,7 +600,7 @@ BEGIN
     'new',
     'tutor'
   )
-  ON CONFLICT (source_type, source_id) DO NOTHING;
+  ON CONFLICT (source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING;
 
   RETURN NEW;
 END;
@@ -639,7 +639,7 @@ BEGIN
     'new',
     'support'
   )
-  ON CONFLICT (source_type, source_id) DO NOTHING;
+  ON CONFLICT (source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING;
 
   RETURN NEW;
 END;
