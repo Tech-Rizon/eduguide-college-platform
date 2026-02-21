@@ -28,6 +28,18 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 
+function openLiveAdvisor(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("eduguide:open-support", {
+      detail: {
+        live: true,
+        message,
+      },
+    })
+  );
+}
+
 const services = [
   {
     category: "Admission Help",
@@ -119,7 +131,7 @@ const subjects = [
 
 export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  // Read published Stripe Price IDs from environment (set these on Netlify)
+  // Read published Stripe Price IDs from environment (set these on Vercel)
   const BASIC_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC ?? ''
   const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
   const ELITE_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? ''
@@ -170,15 +182,15 @@ export default function TutoringPage() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          <Link href="/">
-            <Button variant="ghost">
+          <Button asChild variant="ghost">
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Home
-            </Button>
-          </Link>
-          <Link href="/contact">
-            <Button variant="outline">Contact</Button>
-          </Link>
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/contact">Contact</Link>
+          </Button>
         </div>
       </nav>
 
@@ -199,8 +211,23 @@ export default function TutoringPage() {
             We support students through every milestone of their journey: from college admission prep to graduating with confidence.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-lg px-8 py-6">
-              Request Academic Support Now
+            <Button asChild size="lg" className="text-lg px-8 py-6">
+              <Link href="/contact?topic=tutoring&intent=consultation">
+                Book Free Consultation
+                <Calendar className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6"
+              onClick={() =>
+                openLiveAdvisor(
+                  "I need live tutoring support. Please connect me with an advisor to choose the right plan."
+                )
+              }
+            >
+              Start Live Chat
               <MessageCircle className="ml-2 h-5 w-5" />
             </Button>
           </div>
@@ -251,7 +278,7 @@ export default function TutoringPage() {
                   <ul className="space-y-3">
                     {service.items.map((item) => (
                       <li key={item} className="flex items-start space-x-2">
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
                         <span className="text-gray-700">{item}</span>
                       </li>
                     ))}
@@ -342,6 +369,7 @@ export default function TutoringPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.1, duration: 0.6 }}
           className="mb-16"
+          id="support-plans"
         >
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
             Choose Your Support Level
@@ -480,12 +508,23 @@ export default function TutoringPage() {
             Join thousands of students who have improved their grades and achieved their academic goals with EduGuide.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
-              Start Free Trial
-              <ArrowLeft className="ml-2 h-5 w-5 rotate-180" />
+            <Button asChild size="lg" variant="secondary" className="text-lg px-8 py-6">
+              <Link href="/contact?topic=tutoring&intent=consultation">
+                Book Free Consultation
+                <Calendar className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-white border-white hover:bg-white hover:text-blue-600">
-              Talk to an Advisor
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600"
+              onClick={() =>
+                openLiveAdvisor(
+                  "I am ready to start tutoring and want to chat with a live advisor now."
+                )
+              }
+            >
+              Start Live Chat
               <MessageCircle className="ml-2 h-5 w-5" />
             </Button>
           </div>
