@@ -42,6 +42,19 @@ function isOnConflictTargetMismatch(error: unknown): boolean {
   return message.includes("no unique or exclusion constraint matching the on conflict specification");
 }
 
+function isBackofficeRlsInsertViolation(error: unknown): boolean {
+  const message = toErrorMessage(error, "").toLowerCase();
+  return (
+    message.includes('row-level security policy for table "backoffice_tickets"') ||
+    message.includes("row level security policy for table backoffice_tickets") ||
+    message.includes("permission denied for table backoffice_tickets")
+  );
+}
+
+function shouldFallbackToManualTicket(error: unknown): boolean {
+  return isOnConflictTargetMismatch(error) || isBackofficeRlsInsertViolation(error);
+}
+
 async function findOpenLiveSupportTicket(
   supabaseUser: ReturnType<typeof createUserScopedSupabaseClient>,
   userId: string
@@ -373,7 +386,7 @@ export async function POST(request: Request) {
 
     let ticket: LiveSupportTicket | null = null;
 
-    if (supportRequestError && isOnConflictTargetMismatch(supportRequestError)) {
+    if (supportRequestError && shouldFallbackToManualTicket(supportRequestError)) {
       ticket = await createManualSupportTicketFallback({
         supabaseUser,
         userId: access.user.id,

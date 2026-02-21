@@ -572,7 +572,11 @@ FOR EACH ROW
 EXECUTE FUNCTION public.update_backoffice_updated_at();
 
 CREATE OR REPLACE FUNCTION public.create_backoffice_ticket_from_tutoring_request()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.backoffice_tickets (
     source_type,
@@ -604,7 +608,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS trg_tutoring_requests_create_backoffice_ticket ON public.tutoring_requests;
 CREATE TRIGGER trg_tutoring_requests_create_backoffice_ticket
@@ -613,7 +617,11 @@ FOR EACH ROW
 EXECUTE FUNCTION public.create_backoffice_ticket_from_tutoring_request();
 
 CREATE OR REPLACE FUNCTION public.create_backoffice_ticket_from_support_request()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.backoffice_tickets (
     source_type,
@@ -643,7 +651,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS trg_support_requests_create_backoffice_ticket ON public.support_requests;
 CREATE TRIGGER trg_support_requests_create_backoffice_ticket
