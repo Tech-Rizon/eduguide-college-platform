@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  ArrowRight,
   GraduationCap,
   MessageCircle,
   Send,
@@ -61,6 +62,18 @@ interface AuthUserExtended {
     first_name?: string;
     last_name?: string;
   };
+}
+
+function openLiveAdvisor(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("eduguide:open-support", {
+      detail: {
+        live: true,
+        message,
+      },
+    })
+  );
 }
 
 export default function DashboardPage() {
@@ -171,6 +184,36 @@ export default function DashboardPage() {
   const profileCompleteness = [userProfile.gpa, userProfile.state, userProfile.intendedMajor, userProfile.budget].filter(Boolean).length;
   const profileCompletenessWidthClass = ["w-0", "w-1/4", "w-2/4", "w-3/4", "w-full"][profileCompleteness];
 
+  const nextBestStep = (() => {
+    if (profileCompleteness < 4) {
+      return {
+        title: "Complete Your Profile",
+        detail: "Share GPA, state, major, and budget to unlock better matches.",
+        actionLabel: "Share Missing Details",
+        action: () => handleQuickAction("Help me complete my profile with GPA, location, major, and budget."),
+      };
+    }
+
+    if (collegesExplored < 3) {
+      return {
+        title: "Build a Shortlist",
+        detail: "Explore at least 3 recommended schools before comparing options.",
+        actionLabel: "Find 3 Matching Colleges",
+        action: () => handleQuickAction("Find at least three colleges that match my profile."),
+      };
+    }
+
+    return {
+      title: "Advisor Review",
+      detail: "Escalate to live support for deadline and application strategy checks.",
+      actionLabel: "Talk to Live Advisor",
+      action: () =>
+        openLiveAdvisor(
+          "I need a live advisor to review my shortlist and confirm my next application steps."
+        ),
+    };
+  })();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -274,6 +317,24 @@ export default function DashboardPage() {
                     <span className="text-sm text-gray-600">Colleges Explored</span>
                     <Badge variant="secondary">{collegesExplored}</Badge>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Next Best Step */}
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    Next Best Step
+                  </CardTitle>
+                  <CardDescription>{nextBestStep.title}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-gray-600">{nextBestStep.detail}</p>
+                  <Button className="w-full" onClick={nextBestStep.action}>
+                    {nextBestStep.actionLabel}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </CardContent>
               </Card>
 

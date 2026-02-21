@@ -9,7 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { Headphones, X, Send, User, MinusCircle, Compass, LifeBuoy, CreditCard, GraduationCap, MessageSquareHeart } from "lucide-react";
+import {
+  Headphones,
+  X,
+  Send,
+  User,
+  MinusCircle,
+  Compass,
+  LifeBuoy,
+  CreditCard,
+  GraduationCap,
+  MessageSquareHeart,
+  TriangleAlert,
+} from "lucide-react";
 
 type Sender = "user" | "agent";
 type WidgetMode = "playbook" | "live";
@@ -39,6 +51,12 @@ type PlaybookAction = {
   response: string;
   ctaLabel?: string;
   ctaHref?: string;
+};
+
+type OpenSupportDetail = {
+  live?: boolean;
+  message?: string;
+  urgent?: boolean;
 };
 
 const PLAYBOOK_ACTIONS: PlaybookAction[] = [
@@ -130,6 +148,7 @@ export default function LiveSupportWidget() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncingThread, setIsSyncingThread] = useState(false);
   const [ticket, setTicket] = useState<LiveTicket | null>(null);
+  const [isStaffAccount, setIsStaffAccount] = useState<boolean | null>(null);
   const [unread, setUnread] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -147,6 +166,36 @@ export default function LiveSupportWidget() {
   const appendMessage = useCallback((content: string, sender: Sender) => {
     setMessages((prev) => [...prev, createMessage(content, sender)]);
   }, []);
+
+  useEffect(() => {
+    if (!session?.access_token) {
+      setIsStaffAccount(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadRole = async () => {
+      try {
+        const response = await fetch("/api/user-role", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        if (!response.ok || cancelled) return;
+        const payload = await response.json();
+        if (!cancelled) {
+          setIsStaffAccount(Boolean(payload?.isStaffView));
+        }
+      } catch {
+        // Leave as unknown and continue with runtime checks.
+      }
+    };
+
+    void loadRole();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -219,18 +268,40 @@ export default function LiveSupportWidget() {
   );
 
   const startLiveChat = useCallback(
-    async (initialMessage?: string) => {
+    async (
+      initialMessage?: string,
+      options?: {
+        switchMode?: boolean;
+        silent?: boolean;
+      }
+    ) => {
       if (loading) return;
+      const shouldSwitchMode = options?.switchMode ?? true;
+      const silent = options?.silent ?? false;
 
       if (!user || !session?.access_token) {
-        appendMessage(
-          "Live agent chat requires sign-in so we can link your messages to a secure backoffice conversation. Sign in first, then tap 'Talk to Live Agent' again. You can also use /contact.",
-          "agent"
-        );
+        if (!silent) {
+          appendMessage(
+            "Live agent chat requires sign-in so we can link your messages to a secure backoffice conversation. Sign in first, then tap 'Talk to Live Agent' again. You can also use /contact.",
+            "agent"
+          );
+        }
         return;
       }
 
-      setIsConnecting(true);
+      if (isStaffAccount === true) {
+        if (!silent) {
+          appendMessage(
+            "This live widget is for student requests. Staff should respond from backoffice dashboards.",
+            "agent"
+          );
+        }
+        return;
+      }
+
+      if (!silent) {
+        setIsConnecting(true);
+      }
       try {
         const response = await fetch("/api/live-support/session", {
           method: "POST",
@@ -250,29 +321,71 @@ export default function LiveSupportWidget() {
           throw new Error("Live support session did not return a ticket.");
         }
 
-        setMode("live");
         setTicket(liveTicket);
-        setUnread(0);
-        lastLiveMessageCountRef.current = 0;
-        setMessages([
-          createMessage(
-            payload?.created
-              ? "Live chat started. Your message thread is now connected to backoffice support."
-              : "Resumed your active live support conversation.",
+
+        if (shouldSwitchMode) {
+          setMode("live");
+          setUnread(0);
+          lastLiveMessageCountRef.current = 0;
+          setMessages([
+            createMessage(
+              payload?.created
+                ? "Live chat started. Your message thread is now connected to backoffice support."
+                : "Resumed your active live support conversation.",
+              "agent"
+            ),
+          ]);
+          await syncLiveThread(liveTicket.id);
+        } else if (payload?.created && !silent) {
+          appendMessage(
+            "Your request is now queued in support and linked to a backoffice ticket. Tap 'Talk to Live Agent' to open the live conversation.",
             "agent"
-          ),
-        ]);
-        await syncLiveThread(liveTicket.id);
+          );
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to start live chat.";
-        toast.error(message);
-        appendMessage(`I couldn't connect to a live agent right now. ${message}`, "agent");
+        if (!silent) {
+          const likelyPermissionMessage = message.toLowerCase().includes("student accounts only")
+            ? "Live chat from this widget is limited to student accounts."
+            : message;
+          toast.error(likelyPermissionMessage);
+          appendMessage(`I couldn't connect to a live agent right now. ${likelyPermissionMessage}`, "agent");
+        }
       } finally {
-        setIsConnecting(false);
+        if (!silent) {
+          setIsConnecting(false);
+        }
       }
     },
-    [appendMessage, authHeaders, loading, session?.access_token, syncLiveThread, user]
+    [appendMessage, authHeaders, isStaffAccount, loading, session?.access_token, syncLiveThread, user]
   );
+
+  useEffect(() => {
+    const onOpenSupport = (event: Event) => {
+      const customEvent = event as CustomEvent<OpenSupportDetail>;
+      const detail = customEvent.detail ?? {};
+
+      setIsOpen(true);
+      setIsMinimized(false);
+      setUnread(0);
+
+      const normalizedMessage = typeof detail.message === "string" ? detail.message.trim() : "";
+      const liveRequested = detail.live !== false;
+      const urgentSuffix = detail.urgent ? "\n\nPriority: urgent escalation requested from support CTA." : "";
+      const initialMessage = normalizedMessage ? `${normalizedMessage}${urgentSuffix}` : undefined;
+
+      if (liveRequested) {
+        void startLiveChat(initialMessage);
+      } else if (normalizedMessage) {
+        setInput(normalizedMessage);
+      }
+    };
+
+    window.addEventListener("eduguide:open-support", onOpenSupport as EventListener);
+    return () => {
+      window.removeEventListener("eduguide:open-support", onOpenSupport as EventListener);
+    };
+  }, [startLiveChat]);
 
   useEffect(() => {
     if (!isOpen || loading || !session?.access_token || mode === "live") return;
@@ -370,6 +483,12 @@ export default function LiveSupportWidget() {
 
     appendMessage(value, "user");
     setInput("");
+
+    if (user && session?.access_token && isStaffAccount === false) {
+      // Queue every student question to support while keeping playbook guidance available.
+      void startLiveChat(value, { switchMode: false, silent: true });
+    }
+
     setIsTyping(true);
 
     if (wantsLiveAgent(value)) {
@@ -463,21 +582,44 @@ export default function LiveSupportWidget() {
                         </button>
                       ))}
                     </div>
-                    <div className="flex justify-between gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500"
-                        disabled={isConnecting}
-                        onClick={() => void startLiveChat()}
-                      >
-                        <MessageSquareHeart className="h-3 w-3 mr-1" />
-                        Talk to Live Agent
-                      </Button>
-                      {!user && (
-                        <Link href="/login" className="text-[11px] text-cyan-300 hover:underline self-center">
-                          Sign in for live chat
-                        </Link>
-                      )}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500"
+                          disabled={isConnecting || isStaffAccount === true}
+                          onClick={() => void startLiveChat()}
+                        >
+                          <MessageSquareHeart className="h-3 w-3 mr-1" />
+                          Talk to Live Agent
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-rose-400 text-rose-200 hover:bg-rose-500/20"
+                          disabled={isConnecting || isStaffAccount === true}
+                          onClick={() =>
+                            void startLiveChat(
+                              "Urgent: I need immediate help and queue escalation from the live support team."
+                            )
+                          }
+                        >
+                          <TriangleAlert className="h-3 w-3 mr-1" />
+                          Urgent Escalation
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {isStaffAccount === true && (
+                          <Link href="/backoffice" className="text-[11px] text-cyan-300 hover:underline self-center">
+                            Open Backoffice
+                          </Link>
+                        )}
+                        {!user && (
+                          <Link href="/login" className="text-[11px] text-cyan-300 hover:underline self-center">
+                            Sign in for live chat
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

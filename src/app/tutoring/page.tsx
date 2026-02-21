@@ -28,6 +28,18 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 
+function openLiveAdvisor(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("eduguide:open-support", {
+      detail: {
+        live: true,
+        message,
+      },
+    })
+  );
+}
+
 const services = [
   {
     category: "Admission Help",
@@ -200,10 +212,23 @@ export default function TutoringPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="text-lg px-8 py-6">
-              <Link href="/tutoring-support">
-                Request Academic Support Now
-                <MessageCircle className="ml-2 h-5 w-5" />
+              <Link href="/contact?topic=tutoring&intent=consultation">
+                Book Free Consultation
+                <Calendar className="ml-2 h-5 w-5" />
               </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6"
+              onClick={() =>
+                openLiveAdvisor(
+                  "I need live tutoring support. Please connect me with an advisor to choose the right plan."
+                )
+              }
+            >
+              Start Live Chat
+              <MessageCircle className="ml-2 h-5 w-5" />
             </Button>
           </div>
         </motion.div>
@@ -484,16 +509,23 @@ export default function TutoringPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" variant="secondary" className="text-lg px-8 py-6">
-              <Link href="/register">
-                Start Free Trial
-                <ArrowLeft className="ml-2 h-5 w-5 rotate-180" />
+              <Link href="/contact?topic=tutoring&intent=consultation">
+                Book Free Consultation
+                <Calendar className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600">
-              <Link href="/contact">
-                Talk to an Advisor
-                <MessageCircle className="ml-2 h-5 w-5" />
-              </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600"
+              onClick={() =>
+                openLiveAdvisor(
+                  "I am ready to start tutoring and want to chat with a live advisor now."
+                )
+              }
+            >
+              Start Live Chat
+              <MessageCircle className="ml-2 h-5 w-5" />
             </Button>
           </div>
         </motion.div>

@@ -18,10 +18,24 @@ import {
   TrendingUp,
   Filter,
   ExternalLink,
+  MessageSquareHeart,
+  Bookmark,
   X
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { collegeDatabase, getStates, getCollegeTypes, type CollegeEntry } from "@/lib/collegeDatabase";
+
+function openLiveAdvisor(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("eduguide:open-support", {
+      detail: {
+        live: true,
+        message,
+      },
+    })
+  );
+}
 
 export default function CollegesPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,6 +43,7 @@ export default function CollegesPage() {
   const [selectedType, setSelectedType] = useState("");
   const [maxTuition, setMaxTuition] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [savedCollegeIds, setSavedCollegeIds] = useState<string[]>([]);
 
   const states = getStates();
   const types = getCollegeTypes();
@@ -73,6 +88,12 @@ export default function CollegesPage() {
     setMaxTuition("");
   };
 
+  const toggleSaveCollege = (collegeId: string) => {
+    setSavedCollegeIds((previous) =>
+      previous.includes(collegeId) ? previous.filter((id) => id !== collegeId) : [...previous, collegeId]
+    );
+  };
+
   const hasActiveFilters = searchQuery || selectedState || selectedType || maxTuition;
 
   return (
@@ -109,6 +130,9 @@ export default function CollegesPage() {
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Explore {collegeDatabase.length} colleges and universities. Filter by location, type, budget, and more.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Save schools as you browse, then ask a live advisor about fit, costs, and deadlines.
           </p>
         </motion.div>
 
@@ -213,7 +237,16 @@ export default function CollegesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(index * 0.05, 0.5) }}
             >
-              <CollegeCard college={college} />
+              <CollegeCard
+                college={college}
+                isSaved={savedCollegeIds.includes(college.id)}
+                onToggleSave={() => toggleSaveCollege(college.id)}
+                onAskAdvisor={() =>
+                  openLiveAdvisor(
+                    `I need advisor guidance for ${college.name} (${college.location}). Please help me evaluate fit, affordability, and key application deadlines.`
+                  )
+                }
+              />
             </motion.div>
           ))}
         </div>
@@ -244,11 +277,18 @@ export default function CollegesPage() {
                 Try AI Advisor
               </Button>
             </Link>
-            <Link href="/dashboard">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-white border-white hover:bg-white hover:text-blue-600">
-                Go to Dashboard
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 py-6 text-white border-white hover:bg-white hover:text-blue-600"
+              onClick={() =>
+                openLiveAdvisor(
+                  "I need a live advisor to review the schools I'm considering and recommend the next best application steps."
+                )
+              }
+            >
+              Talk to Live Advisor
+            </Button>
           </div>
         </motion.div>
       </div>
@@ -256,7 +296,17 @@ export default function CollegesPage() {
   );
 }
 
-function CollegeCard({ college }: { college: CollegeEntry }) {
+function CollegeCard({
+  college,
+  isSaved,
+  onToggleSave,
+  onAskAdvisor,
+}: {
+  college: CollegeEntry;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  onAskAdvisor: () => void;
+}) {
   const typeColors: Record<string, string> = {
     "Community College": "bg-green-100 text-green-700",
     "Public University": "bg-blue-100 text-blue-700",
@@ -326,6 +376,17 @@ function CollegeCard({ college }: { college: CollegeEntry }) {
         </div>
 
         <p className="mt-3 text-xs text-gray-500 line-clamp-2">{college.description}</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button size="sm" variant={isSaved ? "default" : "outline"} onClick={onToggleSave}>
+            <Bookmark className="h-3.5 w-3.5 mr-1" />
+            {isSaved ? "Saved" : "Save School"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onAskAdvisor}>
+            <MessageSquareHeart className="h-3.5 w-3.5 mr-1" />
+            Ask Advisor
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
