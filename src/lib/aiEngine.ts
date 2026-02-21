@@ -36,7 +36,6 @@ const TRADING_SYSTEM_KEYWORDS = [
   "order block",
   "liquidity sweep",
   "choch",
-  "bos",
   "backtest",
   "paper trading",
   "risk orchestrator",
@@ -47,9 +46,17 @@ const TRADING_SYSTEM_KEYWORDS = [
   "trade execution",
 ];
 
+function escapeRegexLiteral(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function isOutOfScopeTradingRequest(message: string): boolean {
   const lower = message.toLowerCase();
-  return TRADING_SYSTEM_KEYWORDS.some(keyword => lower.includes(keyword));
+  return TRADING_SYSTEM_KEYWORDS.some((keyword) => {
+    if (keyword.includes(" ")) return lower.includes(keyword);
+    const pattern = new RegExp(`\\b${escapeRegexLiteral(keyword)}\\b`, "i");
+    return pattern.test(lower);
+  });
 }
 
 // State abbreviation mapping
