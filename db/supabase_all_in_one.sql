@@ -915,15 +915,15 @@ AS $$
 DECLARE
   level_value TEXT;
   assigned_user UUID;
-  assigned_team TEXT;
+  ticket_assigned_team TEXT;
   student_user UUID;
 BEGIN
   level_value := public.current_staff_level();
 
-  SELECT assigned_to_user_id, assigned_team, student_user_id
-  INTO assigned_user, assigned_team, student_user
-  FROM public.backoffice_tickets
-  WHERE id = ticket_uuid;
+  SELECT bt.assigned_to_user_id, bt.assigned_team, bt.student_user_id
+  INTO assigned_user, ticket_assigned_team, student_user
+  FROM public.backoffice_tickets bt
+  WHERE bt.id = ticket_uuid;
 
   IF NOT FOUND THEN
     RETURN FALSE;
@@ -934,7 +934,7 @@ BEGIN
   END IF;
 
   IF level_value IN ('tutor', 'support') THEN
-    RETURN assigned_user = auth.uid() AND assigned_team = level_value;
+    RETURN assigned_user = auth.uid() AND ticket_assigned_team = level_value;
   END IF;
 
   RETURN student_user = auth.uid();
