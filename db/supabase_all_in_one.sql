@@ -11,6 +11,7 @@
 -- 4) 20260217_normalize_user_roles_and_staff_levels.sql
 -- 5) 20260218_backoffice_ticketing_and_auto_assignment.sql
 -- 6) 20260219_enterprise_backoffice_hardening.sql
+-- 7) 20260225_add_usernames_to_user_profiles.sql
 --
 -- WARNING:
 -- - Optional DROP TABLE statements are commented out by default.
@@ -1317,6 +1318,32 @@ CREATE POLICY "Service role full access to ticket attachments" ON public.backoff
 FOR ALL USING (auth.role() = 'service_role')
 WITH CHECK (auth.role() = 'service_role');
 
+-- =============================================================================
+-- 7) Usernames for Student Profiles
+-- Source: db/migrations/20260225_add_usernames_to_user_profiles.sql
+-- =============================================================================
+
+ALTER TABLE public.user_profiles
+ADD COLUMN IF NOT EXISTS username TEXT;
+
+-- Normalize existing values if the column already existed in a prior local version.
+UPDATE public.user_profiles
+SET username = NULLIF(LOWER(TRIM(username)), '')
+WHERE username IS DISTINCT FROM NULLIF(LOWER(TRIM(username)), '');
+
+ALTER TABLE public.user_profiles
+DROP CONSTRAINT IF EXISTS user_profiles_username_format_check;
+
+ALTER TABLE public.user_profiles
+ADD CONSTRAINT user_profiles_username_format_check
+CHECK (
+  username IS NULL
+  OR username ~ '^[a-z0-9_]{3,30}$'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_username_unique
+ON public.user_profiles (LOWER(username))
+WHERE username IS NOT NULL;
 
 -- =============================================================================
 -- End of all-in-one Supabase database script.

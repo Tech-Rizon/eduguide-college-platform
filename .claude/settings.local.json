@@ -5,7 +5,8 @@
       "Bash(where:*)",
       "Bash(cmd.exe /c \"where gh\")",
       "Bash(winget install:*)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(npm run build)"
     ]
   }
 }

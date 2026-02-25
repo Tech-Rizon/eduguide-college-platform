@@ -63,8 +63,8 @@ export default function SuperAdminDashboardPage() {
         return;
       }
 
-      const staffPayload = await staffRes.json();
-      const ticketPayload = await ticketRes.json();
+      const staffPayload = await staffRes.json() as { staff?: StaffUser[] };
+      const ticketPayload = await ticketRes.json() as { tickets?: TicketSummary[] };
       setStaff(staffPayload?.staff ?? []);
       setTickets(ticketPayload?.tickets ?? []);
     } catch {
@@ -103,7 +103,7 @@ export default function SuperAdminDashboardPage() {
         }),
       });
 
-      const payload = await res.json().catch(() => ({}));
+      const payload = await res.json().catch(() => ({})) as { error?: string };
       if (!res.ok) {
         toast.error(payload?.error ?? "Role assignment failed.");
         return;

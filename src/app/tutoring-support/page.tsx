@@ -29,7 +29,6 @@ import {
   Calendar,
   Award,
   Briefcase,
-  Upload,
   AlertCircle
 } from "lucide-react";
 import Link from "next/link";
@@ -37,11 +36,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
 
+// Subject value → API category mapping
+const SUBJECT_CATEGORY_MAP: Record<string, string> = {
+  mathematics: "general",
+  science: "general",
+  english: "general",
+  history: "general",
+  computer_science: "general",
+  business: "general",
+  college_prep: "college_guidance",
+  test_prep: "test_prep",
+  other: "general",
+};
+
 const requestSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be under 2000 characters"),
   priority: z.enum(["low", "medium", "high"]),
-  file_url: z.string().optional(),
 });
 
 type RequestForm = z.infer<typeof requestSchema>;
@@ -92,7 +103,6 @@ function TutoringSupportPage() {
       subject: "",
       description: "",
       priority: "medium",
-      file_url: "",
     },
   });
 
@@ -104,27 +114,36 @@ function TutoringSupportPage() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('tutoring_requests')
-        .insert({
-          user_id: user.id,
-          subject: data.subject,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Session expired. Please log in again.");
+
+      const subjectLabel = subjects.find((s) => s.value === data.subject)?.label ?? data.subject;
+      const category = SUBJECT_CATEGORY_MAP[data.subject] ?? "general";
+
+      const res = await fetch("/api/tutoring-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          category,
+          subject: subjectLabel,
           description: data.description,
           priority: data.priority,
-          file_url: data.file_url || null,
-          status: 'pending'
-        });
+        }),
+      });
 
-      if (error) {
-        throw error;
-      }
+      const payload = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(payload.error || "Failed to submit request");
 
       setIsSubmitted(true);
       toast.success("Your tutoring request has been submitted successfully!");
       form.reset();
-    } catch (error: any) {
-      console.error('Request submission error:', error);
-      toast.error("Failed to submit request. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to submit request. Please try again.";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -304,23 +323,6 @@ function TutoringSupportPage() {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="file_url"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Supporting Documents (Optional)</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Paste a link to your assignment, notes, or other helpful documents"
-                                {...field}
-                              />
-                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}

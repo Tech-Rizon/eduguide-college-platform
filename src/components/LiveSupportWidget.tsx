@@ -530,17 +530,17 @@ export default function LiveSupportWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
       <AnimatePresence>
         {isOpen && !isMinimized && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.92 }}
-            className="mb-4"
+            className="mb-3 sm:mb-4 origin-bottom-right"
           >
-            <Card className="w-80 sm:w-[26rem] shadow-2xl border-cyan-700/40 bg-slate-950 text-slate-100">
-              <CardHeader className="bg-gradient-to-r from-cyan-700 to-blue-700 rounded-t-lg py-3 px-4">
+            <Card className="w-[calc(100vw-1rem)] max-w-[26rem] shadow-2xl border-cyan-700/40 bg-slate-950 text-slate-100 max-h-[calc(100dvh-5.5rem)] sm:max-h-[calc(100dvh-6rem)] flex flex-col overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-cyan-700 to-blue-700 rounded-t-lg py-3 px-4 shrink-0">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Headphones className="h-4 w-4" />
@@ -565,11 +565,11 @@ export default function LiveSupportWidget() {
                 )}
               </CardHeader>
 
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex min-h-0 flex-1 flex-col overflow-hidden">
                 {mode === "playbook" && (
-                  <div className="border-b border-slate-800 p-3 space-y-2 bg-slate-900/80">
+                  <div className="border-b border-slate-800 p-3 space-y-2 bg-slate-900/80 shrink-0 max-h-[36dvh] overflow-y-auto">
                     <p className="text-[11px] uppercase tracking-wide text-slate-400">Guided Playbooks</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {PLAYBOOK_ACTIONS.map((action) => (
                         <button
                           key={action.id}
@@ -625,7 +625,7 @@ export default function LiveSupportWidget() {
                 )}
 
                 {mode === "live" && (
-                  <div className="border-b border-slate-800 p-3 flex items-center justify-between bg-slate-900/80">
+                  <div className="border-b border-slate-800 p-3 flex items-center justify-between gap-2 bg-slate-900/80 shrink-0">
                     <p className="text-[11px] text-slate-300">
                       Messages are synced with backoffice agents in real time.
                     </p>
@@ -640,7 +640,7 @@ export default function LiveSupportWidget() {
                   </div>
                 )}
 
-                <div className="h-80 overflow-y-auto p-3 space-y-3 bg-slate-950">
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-3 bg-slate-950">
                   {messages.map((message) => (
                     <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`flex gap-2 max-w-[88%] ${message.sender === "user" ? "flex-row-reverse" : ""}`}>
@@ -660,7 +660,7 @@ export default function LiveSupportWidget() {
                             message.sender === "user" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-100"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
                           <p className={`text-[10px] mt-1 ${message.sender === "user" ? "text-blue-100/80" : "text-slate-400"}`}>
                             {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
@@ -694,14 +694,14 @@ export default function LiveSupportWidget() {
                 </div>
 
                 {mode === "playbook" && (
-                  <div className="border-t border-slate-800 px-3 py-2 flex items-center gap-2 text-[11px] text-slate-400">
+                  <div className="border-t border-slate-800 px-3 py-2 flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
                     <Compass className="h-3.5 w-3.5 text-cyan-400" />
                     <span>Playbook gives guided paths. Live chat opens a backoffice conversation.</span>
                   </div>
                 )}
 
                 {mode === "playbook" && (
-                  <div className="px-3 pb-2 flex gap-2 text-[11px]">
+                  <div className="px-3 pb-2 flex flex-wrap gap-2 text-[11px] shrink-0">
                     <Link href="/colleges" className="inline-flex items-center gap-1 text-cyan-300 hover:underline">
                       <GraduationCap className="h-3 w-3" />
                       Colleges
@@ -717,13 +717,13 @@ export default function LiveSupportWidget() {
                   </div>
                 )}
 
-                <div className="border-t border-slate-800 p-3 bg-slate-950">
-                  <div className="flex gap-2">
+                <div className="border-t border-slate-800 p-3 bg-slate-950 shrink-0">
+                  <div className="flex items-center gap-2">
                     <Input
                       value={input}
                       onChange={(event) => setInput(event.target.value)}
                       placeholder={mode === "live" ? "Message your support agent..." : "Ask for a playbook or type your question..."}
-                      className="text-xs h-8 bg-slate-900 border-slate-700 text-slate-100"
+                      className="text-xs h-8 min-w-0 flex-1 bg-slate-900 border-slate-700 text-slate-100"
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           void sendMessage();
@@ -731,7 +731,7 @@ export default function LiveSupportWidget() {
                       }}
                       disabled={isConnecting}
                     />
-                    <Button size="sm" className="h-8 px-3 bg-cyan-600 hover:bg-cyan-500" onClick={() => void sendMessage()} disabled={!input.trim() || isConnecting}>
+                    <Button size="sm" className="h-8 px-3 shrink-0 bg-cyan-600 hover:bg-cyan-500" onClick={() => void sendMessage()} disabled={!input.trim() || isConnecting}>
                       <Send className="h-3 w-3" />
                     </Button>
                   </div>
@@ -751,9 +751,9 @@ export default function LiveSupportWidget() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={toggleOpen}
-        className="relative h-14 w-14 rounded-full bg-cyan-600 text-white shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-colors"
+        className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-cyan-600 text-white shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-colors"
       >
-        {isOpen ? <X className="h-6 w-6" /> : <Headphones className="h-6 w-6" />}
+        {isOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Headphones className="h-5 w-5 sm:h-6 sm:w-6" />}
         {unread > 0 && !isOpen && (
           <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-white text-xs flex items-center justify-center">
             {unread}

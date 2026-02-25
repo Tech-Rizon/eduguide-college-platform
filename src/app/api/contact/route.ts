@@ -3,47 +3,78 @@ import { supabaseServer } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const ALLOWED_PRIORITIES = new Set(['low', 'medium', 'high', 'urgent'])
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, email, message, userId, priority } = body;
 
+    // Validate required fields
     if (!name || !email || !message) {
       return NextResponse.json({ error: 'name, email, and message are required' }, { status: 400 });
     }
 
+    // Validate types
+    if (typeof name !== 'string' || typeof email !== 'string' || typeof message !== 'string') {
+      return NextResponse.json({ error: 'name, email, and message must be strings' }, { status: 400 });
+    }
+
+    // Length limits to prevent abuse
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedMessage = message.trim()
+
+    if (trimmedName.length < 1 || trimmedName.length > 100) {
+      return NextResponse.json({ error: 'Name must be between 1 and 100 characters' }, { status: 400 });
+    }
+    if (trimmedEmail.length > 254 || !EMAIL_REGEX.test(trimmedEmail)) {
+      return NextResponse.json({ error: 'A valid email address is required' }, { status: 400 });
+    }
+    if (trimmedMessage.length < 10 || trimmedMessage.length > 5000) {
+      return NextResponse.json({ error: 'Message must be between 10 and 5000 characters' }, { status: 400 });
+    }
+
+    // Validate optional userId
+    const resolvedUserId = typeof userId === 'string' && userId.length > 0 ? userId : null
+
+    const resolvedPriority = ALLOWED_PRIORITIES.has(priority) ? priority : 'medium'
+
     const { data: supportRequest, error: insertError } = await supabaseServer
       .from('support_requests')
       .insert({
-        user_id: userId ?? null,
-        name,
-        email,
-        message,
-        priority: priority ?? 'medium',
+        user_id: resolvedUserId,
+        name: trimmedName,
+        email: trimmedEmail,
+        message: trimmedMessage,
+        priority: resolvedPriority,
         source: 'contact_form',
       })
       .select()
       .single()
 
     if (insertError) {
-      return NextResponse.json({ error: 'Failed to store support request', detail: insertError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to store support request' }, { status: 500 })
     }
 
-    // If a mailer is configured via SENDGRID_API_KEY, send an email via SendGrid
+    // Send email via SendGrid if configured
     const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
     const TO_EMAIL = process.env.CONTACT_TO_EMAIL ?? 'support@eduguide.online';
 
     let emailDispatched = false
-    let emailError: string | null = null
 
     if (SENDGRID_API_KEY) {
-      // Send via SendGrid
       const payload = {
         personalizations: [{ to: [{ email: TO_EMAIL }] }],
         from: { email: 'no-reply@eduguide.online', name: 'EduGuide' },
-        subject: `Contact form submission from ${name}`,
+        reply_to: { email: trimmedEmail, name: trimmedName },
+        subject: `Contact form: ${trimmedName}`,
         content: [
-          { type: 'text/plain', value: `Name: ${name}\nEmail: ${email}\n\n${message}` },
+          {
+            type: 'text/plain',
+            value: `Name: ${trimmedName}\nEmail: ${trimmedEmail}\nPriority: ${resolvedPriority}\n\n${trimmedMessage}`
+          },
         ],
       };
 
@@ -56,20 +87,15 @@ export async function POST(request: Request) {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        emailDispatched = true
-      } else {
-        emailError = await res.text()
-      }
+      emailDispatched = res.ok
     }
 
     return NextResponse.json({
       success: true,
       supportRequestId: supportRequest.id,
       emailDispatched,
-      emailError,
     });
-  } catch (err) {
-    return NextResponse.json({ error: 'Server error', detail: String(err) }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

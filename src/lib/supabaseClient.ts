@@ -1,40 +1,39 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-let _supabase: any;
+type StubSupabase = Pick<SupabaseClient, "auth" | "from">;
 
-// Stub used when Supabase env vars are missing (CI builds, server-side rendering)
-const createStub = () => ({
+const createStub = (): StubSupabase => ({
 	auth: {
-		getUser: async () => ({ data: { user: null } }),
-		getSession: async () => ({ data: { session: null } }),
-		onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-		signUp: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
-		signInWithPassword: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+		getUser: async () => ({ data: { user: null }, error: null }),
+		getSession: async () => ({ data: { session: null }, error: null }),
+		onAuthStateChange: () => ({ data: { subscription: { id: "", callback: () => {}, unsubscribe: () => {} } }, error: null }),
+		signUp: async () => ({ data: { user: null, session: null }, error: new Error("Supabase environment variables not configured") }),
+		signInWithPassword: async () => ({ data: { user: null, session: null }, error: new Error("Supabase environment variables not configured") }),
 		signOut: async () => ({ error: new Error("Supabase environment variables not configured") }),
-		updateUser: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
-		resetPasswordForEmail: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+		updateUser: async () => ({ data: { user: null }, error: new Error("Supabase environment variables not configured") }),
+		resetPasswordForEmail: async () => ({ data: {}, error: new Error("Supabase environment variables not configured") }),
 		mfa: {
 			listFactors: async () => ({ data: { all: [], totp: [], phone: [] }, error: new Error("Supabase environment variables not configured") }),
 			enroll: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
 			challenge: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
-			verify: async () => ({ data: null, error: new Error("Supabase environment variables not configured") }),
+			verify: async () => ({ data: null, session: null, error: new Error("Supabase environment variables not configured") }),
 		},
+	} as unknown as SupabaseClient["auth"],
+	from: () => {
+		throw new Error("Supabase not available");
 	},
-	from: () => ({ select: async () => ({ data: null, error: new Error("Supabase not available") }) }),
-} as any);
+});
 
-if (typeof window !== "undefined") {
+function buildClient(): SupabaseClient | StubSupabase {
+	if (typeof window === "undefined") return createStub();
 	if (!supabaseUrl || !supabaseAnonKey) {
 		console.warn("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.");
-		_supabase = createStub();
-	} else {
-		_supabase = createClient(supabaseUrl, supabaseAnonKey);
+		return createStub();
 	}
-} else {
-	_supabase = createStub();
+	return createClient(supabaseUrl, supabaseAnonKey);
 }
 
-export const supabase = _supabase as any;
+export const supabase = buildClient() as SupabaseClient;

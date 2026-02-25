@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -38,13 +37,18 @@ interface Message {
   colleges?: CollegeEntry[];
 }
 
+function createMessageId(prefix: string): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export default function DemoPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages([{
@@ -56,18 +60,25 @@ export default function DemoPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [messages.length]);
+    const viewport = messageListRef.current;
+    if (!viewport) return;
+
+    const timer = window.setTimeout(() => {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 60);
+
+    return () => window.clearTimeout(timer);
+  }, [messages.length, isTyping]);
 
   const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (isTyping || !inputMessage.trim()) return;
 
     if (messageCount >= 5) {
       setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+        id: createMessageId("ai-limit"),
         content: "You've reached the demo limit of 5 messages. Create a free account to get unlimited AI guidance, save your profile, and access our full college database!",
         sender: "ai",
         timestamp: new Date(),
@@ -76,7 +87,7 @@ export default function DemoPage() {
     }
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: createMessageId("user"),
       content: inputMessage,
       sender: "user",
       timestamp: new Date(),
@@ -88,23 +99,33 @@ export default function DemoPage() {
     setIsTyping(true);
     setMessageCount(prev => prev + 1);
 
-    setTimeout(() => {
-      const aiResponse = processMessage(currentInput, userProfile);
+    window.setTimeout(() => {
+      try {
+        const aiResponse = processMessage(currentInput, userProfile);
 
-      if (aiResponse.profileUpdates) {
-        setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
+        if (aiResponse.profileUpdates) {
+          setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
+        }
+
+        const aiMessage: Message = {
+          id: createMessageId("ai"),
+          content: aiResponse.content,
+          sender: "ai",
+          timestamp: new Date(),
+          colleges: aiResponse.colleges,
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+      } catch {
+        setMessages(prev => [...prev, {
+          id: createMessageId("ai-error"),
+          content: "I ran into an issue generating that response. Please try again.",
+          sender: "ai",
+          timestamp: new Date(),
+        }]);
+      } finally {
+        setIsTyping(false);
       }
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: aiResponse.content,
-        sender: "ai",
-        timestamp: new Date(),
-        colleges: aiResponse.colleges,
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
     }, 800 + Math.random() * 700);
   };
 
@@ -139,10 +160,10 @@ export default function DemoPage() {
           </AlertDescription>
         </Alert>
 
-        <Card className="flex flex-col h-[calc(100vh-300px)] min-h-[500px] max-h-[700px]">
+        <Card className="flex flex-col overflow-hidden h-[calc(100vh-300px)] min-h-[500px] max-h-[700px]">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Bot className="h-6 w-6 text-blue-600" />
                 <CardTitle>AI College Guidance - Demo</CardTitle>
                 <Badge variant="secondary">
@@ -150,7 +171,7 @@ export default function DemoPage() {
                   Smart Matching
                 </Badge>
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="shrink-0 text-sm text-gray-500">
                 Messages: {messageCount}/5
               </div>
             </div>
@@ -159,8 +180,12 @@ export default function DemoPage() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 min-h-0 pr-4">
+          <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div
+              ref={messageListRef}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2"
+              aria-live="polite"
+            >
               <div className="space-y-4 pb-4">
                 {messages.map((message) => (
                   <motion.div
@@ -169,19 +194,19 @@ export default function DemoPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div className={`flex space-x-2 max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                    <div className={`flex w-full max-w-[90%] space-x-2 sm:max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
                       <Avatar className="h-8 w-8 shrink-0">
                         <AvatarFallback>
                           {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                         </AvatarFallback>
                       </Avatar>
 
-                      <div className={`rounded-lg px-4 py-3 ${
+                      <div className={`max-w-full overflow-hidden break-words rounded-lg px-4 py-3 ${
                         message.sender === "user"
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-900"
                       }`}>
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
 
                         {message.colleges && message.colleges.length > 0 && (
                           <div className="mt-4 space-y-3">
@@ -275,13 +300,12 @@ export default function DemoPage() {
                   </motion.div>
                 )}
 
-                <div ref={messagesEndRef} />
               </div>
-            </ScrollArea>
+            </div>
 
             <Separator className="my-4" />
 
-            <div className="flex space-x-2">
+            <div className="flex items-end gap-2">
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -289,7 +313,7 @@ export default function DemoPage() {
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                 disabled={isTyping || messageCount >= 5}
               />
-              <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim() || messageCount >= 5}>
+              <Button className="shrink-0" onClick={sendMessage} disabled={isTyping || !inputMessage.trim() || messageCount >= 5}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>

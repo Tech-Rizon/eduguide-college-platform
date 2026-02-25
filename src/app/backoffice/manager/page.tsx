@@ -67,8 +67,8 @@ export default function ManagerDashboardPage() {
         return;
       }
 
-      const ticketPayload = await ticketRes.json();
-      const staffPayload = await staffRes.json();
+      const ticketPayload = await ticketRes.json() as { tickets?: BackofficeTicket[] };
+      const staffPayload = await staffRes.json() as { staff?: StaffUser[] };
       setTickets(ticketPayload?.tickets ?? []);
       setStaff(staffPayload?.staff ?? []);
     } catch {
@@ -149,7 +149,7 @@ export default function ManagerDashboardPage() {
       });
 
       if (!res.ok) {
-        const payload = await res.json().catch(() => null);
+        const payload = await res.json().catch(() => null) as { error?: string } | null;
         toast.error(payload?.error ?? "Assignment failed.");
         return;
       }
