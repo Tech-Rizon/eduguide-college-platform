@@ -25,8 +25,74 @@ type TicketSummary = {
   status: string;
   priority: string;
   assigned_to_user_id: string | null;
+  assigned_team: string | null;
+  requester_email: string | null;
   created_at: string;
+  resolution_due_at: string | null;
+  breach_at: string | null;
 };
+
+const PRIORITY_BADGE_CLASSES: Record<string, string> = {
+  urgent: "bg-red-500/20 text-red-300",
+  high: "bg-amber-500/20 text-amber-300",
+  medium: "bg-blue-500/20 text-blue-300",
+  low: "bg-slate-500/20 text-slate-300",
+};
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  new: "bg-slate-500/20 text-slate-300",
+  assigned: "bg-violet-500/20 text-violet-300",
+  in_progress: "bg-emerald-500/20 text-emerald-300",
+  waiting_on_student: "bg-amber-500/20 text-amber-300",
+  resolved: "bg-teal-500/20 text-teal-300",
+  closed: "bg-slate-600/20 text-slate-400",
+};
+
+const STAFF_LEVEL_CLASSES: Record<string, string> = {
+  super_admin: "bg-red-500/20 text-red-300",
+  manager: "bg-amber-500/20 text-amber-300",
+  support: "bg-blue-500/20 text-blue-300",
+  tutor: "bg-violet-500/20 text-violet-300",
+};
+
+function formatRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function SlaChip({ ticket }: { ticket: TicketSummary }) {
+  if (ticket.status === "resolved" || ticket.status === "closed") return null;
+  const due = ticket.resolution_due_at ?? ticket.breach_at;
+  if (!due) return null;
+
+  const diffMs = new Date(due).getTime() - Date.now();
+  let label: string;
+  let cls: string;
+
+  if (diffMs < 0) {
+    const overHours = Math.floor(Math.abs(diffMs) / 3_600_000);
+    label = overHours > 0 ? `SLA +${overHours}h` : `SLA +${Math.floor(Math.abs(diffMs) / 60_000)}m`;
+    cls = "bg-red-500/20 text-red-400 border border-red-500/30";
+  } else if (diffMs < 3_600_000) {
+    label = `SLA ${Math.ceil(diffMs / 60_000)}m`;
+    cls = "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+  } else {
+    const remDays = Math.floor(diffMs / 86_400_000);
+    label = remDays > 0 ? `SLA ${remDays}d` : `SLA ${Math.floor(diffMs / 3_600_000)}h`;
+    cls = "bg-slate-700/40 text-slate-400 border border-slate-600/30";
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function SuperAdminDashboardPage() {
   const { loading, session } = useStaffAccess({
@@ -39,6 +105,7 @@ export default function SuperAdminDashboardPage() {
   const [openThreadTicketId, setOpenThreadTicketId] = useState<string | null>(null);
   const [targetEmail, setTargetEmail] = useState("");
   const [targetLevel, setTargetLevel] = useState<"tutor" | "support" | "manager" | "super_admin">("support");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const authHeaders = useMemo(
     () => ({
@@ -117,9 +184,22 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
-  const unassignedCount = useMemo(() => tickets.filter((ticket) => !ticket.assigned_to_user_id).length, [tickets]);
-  const urgentCount = useMemo(() => tickets.filter((ticket) => ticket.priority === "urgent").length, [tickets]);
-  const superAdminCount = useMemo(() => staff.filter((member) => member.staffLevel === "super_admin").length, [staff]);
+  const filteredTickets = useMemo(() => {
+    if (statusFilter === "all") return tickets;
+    return tickets.filter((t) => t.status === statusFilter);
+  }, [tickets, statusFilter]);
+
+  const unassignedCount = useMemo(() => tickets.filter((t) => !t.assigned_to_user_id).length, [tickets]);
+  const urgentCount = useMemo(() => tickets.filter((t) => t.priority === "urgent").length, [tickets]);
+  const superAdminCount = useMemo(() => staff.filter((m) => m.staffLevel === "super_admin").length, [staff]);
+  const breachedCount = useMemo(() => {
+    const now = Date.now();
+    return tickets.filter((t) => {
+      if (t.status === "resolved" || t.status === "closed") return false;
+      const due = t.resolution_due_at ?? t.breach_at;
+      return due ? new Date(due).getTime() < now : false;
+    }).length;
+  }, [tickets]);
 
   if (loading) {
     return (
@@ -135,7 +215,8 @@ export default function SuperAdminDashboardPage() {
       subtitle="Control role governance, private dashboard access, and enterprise backoffice operations."
       levelLabel="SUPER ADMIN"
     >
-      <div className="grid sm:grid-cols-3 gap-4">
+      {/* Stats */}
+      <div className="grid sm:grid-cols-4 gap-4">
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">Staff Accounts</CardDescription>
@@ -144,18 +225,25 @@ export default function SuperAdminDashboardPage() {
         </Card>
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardDescription className="text-slate-400">Unassigned Tickets</CardDescription>
+            <CardDescription className="text-slate-400">Unassigned</CardDescription>
             <CardTitle className="text-3xl text-amber-300">{unassignedCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardDescription className="text-slate-400">Urgent Tickets</CardDescription>
+            <CardDescription className="text-slate-400">Urgent</CardDescription>
             <CardTitle className="text-3xl text-red-300">{urgentCount}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-slate-400">SLA Breached</CardDescription>
+            <CardTitle className="text-3xl text-red-300">{breachedCount}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
+      {/* Role Assignment */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
           <CardTitle>Role Assignment</CardTitle>
@@ -167,10 +255,10 @@ export default function SuperAdminDashboardPage() {
           <Input
             placeholder="staff@company.com"
             value={targetEmail}
-            onChange={(event) => setTargetEmail(event.target.value)}
+            onChange={(e) => setTargetEmail(e.target.value)}
             className="bg-slate-800 border-slate-700 text-slate-100 sm:col-span-2"
           />
-          <Select value={targetLevel} onValueChange={(value) => setTargetLevel(value as "tutor" | "support" | "manager" | "super_admin")}>
+          <Select value={targetLevel} onValueChange={(v) => setTargetLevel(v as "tutor" | "support" | "manager" | "super_admin")}>
             <SelectTrigger className="bg-slate-800 border-slate-700">
               <SelectValue placeholder="Role level" />
             </SelectTrigger>
@@ -187,11 +275,12 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Staff Directory */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
           <CardTitle>Staff Directory</CardTitle>
           <CardDescription className="text-slate-400">
-            Super admin accounts configured: {superAdminCount}
+            {staff.length} total &mdash; {superAdminCount} super admin{superAdminCount !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -199,10 +288,10 @@ export default function SuperAdminDashboardPage() {
             <div key={member.userId} className="rounded-lg border border-slate-700 bg-slate-800 p-3 flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium">{member.email ?? member.userId}</p>
-                <p className="text-xs text-slate-400">{member.userId}</p>
+                <p className="text-xs text-slate-400 font-mono">{member.userId}</p>
               </div>
-              <Badge className={member.staffLevel === "super_admin" ? "bg-red-500/20 text-red-300" : member.staffLevel === "manager" ? "bg-amber-500/20 text-amber-300" : "bg-blue-500/20 text-blue-300"}>
-                {member.staffLevel.toUpperCase()}
+              <Badge className={STAFF_LEVEL_CLASSES[member.staffLevel] ?? "bg-slate-500/20 text-slate-300"}>
+                {member.staffLevel.replace(/_/g, " ").toUpperCase()}
               </Badge>
             </div>
           ))}
@@ -212,25 +301,67 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Ticket Intake */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
-          <CardTitle>Recent Ticket Intake</CardTitle>
-          <CardDescription className="text-slate-400">
-            Includes auto-assigned tutoring and support requests.
-          </CardDescription>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Ticket Intake</CardTitle>
+              <CardDescription className="text-slate-400">
+                {filteredTickets.length} of {tickets.length} tickets &mdash; includes auto-assigned tutoring and support requests.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-44 bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="waiting_on_student">Waiting on Student</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={loadData}
+                disabled={loadingData}
+                className="border-slate-700 bg-transparent hover:bg-slate-800"
+              >
+                {loadingData ? "..." : "↺"}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {tickets.slice(0, 12).map((ticket) => (
+          {filteredTickets.slice(0, 20).map((ticket) => (
             <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{ticket.title}</p>
-                  <p className="text-xs text-slate-400">{new Date(ticket.created_at).toLocaleString()}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+                    <span className="text-xs text-slate-400">{formatRelativeTime(ticket.created_at)}</span>
+                    {ticket.requester_email && (
+                      <>
+                        <span className="text-slate-600 text-xs">&middot;</span>
+                        <a href={`mailto:${ticket.requester_email}`} className="text-xs text-slate-400 hover:underline">
+                          {ticket.requester_email}
+                        </a>
+                      </>
+                    )}
+                    <SlaChip ticket={ticket} />
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge className="bg-slate-700 text-slate-200">{ticket.status}</Badge>
-                  <Badge className={ticket.priority === "urgent" ? "bg-red-500/20 text-red-300" : ticket.priority === "high" ? "bg-amber-500/20 text-amber-300" : "bg-blue-500/20 text-blue-300"}>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <Badge className={PRIORITY_BADGE_CLASSES[ticket.priority] ?? PRIORITY_BADGE_CLASSES.medium}>
                     {ticket.priority.toUpperCase()}
+                  </Badge>
+                  <Badge className={STATUS_BADGE_CLASSES[ticket.status] ?? "bg-slate-500/20 text-slate-300"}>
+                    {ticket.status.replace(/_/g, " ")}
                   </Badge>
                 </div>
               </div>
@@ -240,9 +371,7 @@ export default function SuperAdminDashboardPage() {
                   type="button"
                   variant="outline"
                   className="border-slate-700 bg-transparent hover:bg-slate-700"
-                  onClick={() =>
-                    setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))
-                  }
+                  onClick={() => setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))}
                 >
                   {openThreadTicketId === ticket.id ? "Hide Thread" : "Open Thread"}
                 </Button>
@@ -257,8 +386,8 @@ export default function SuperAdminDashboardPage() {
               )}
             </div>
           ))}
-          {!loadingData && tickets.length === 0 && (
-            <p className="text-sm text-slate-400">No tickets in queue yet.</p>
+          {!loadingData && filteredTickets.length === 0 && (
+            <p className="text-sm text-slate-400">No tickets match the current filter.</p>
           )}
         </CardContent>
       </Card>

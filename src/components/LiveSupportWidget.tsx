@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Headphones,
@@ -545,9 +544,6 @@ export default function LiveSupportWidget() {
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Headphones className="h-4 w-4" />
                     Support Desk
-                    <Badge variant="secondary" className="bg-emerald-500 text-emerald-950 text-xs">
-                      {mode === "live" ? "Live" : "Playbook"}
-                    </Badge>
                   </CardTitle>
                   <div className="flex gap-1">
                     <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/15 rounded">

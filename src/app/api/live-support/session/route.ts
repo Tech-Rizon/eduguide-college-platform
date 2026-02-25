@@ -24,7 +24,8 @@ function toErrorMessage(error: unknown, fallback: string): string {
   }
 
   if (typeof error === "object" && error !== null) {
-    const maybeMessage = (error as any).message ?? (error as any).details ?? (error as any).hint;
+    const e = error as Record<string, unknown>;
+    const maybeMessage = e["message"] ?? e["details"] ?? e["hint"];
     if (typeof maybeMessage === "string" && maybeMessage.trim()) {
       return maybeMessage;
     }
@@ -51,8 +52,13 @@ function isBackofficeRlsInsertViolation(error: unknown): boolean {
   );
 }
 
+function isColumnAmbiguityError(error: unknown): boolean {
+  const message = toErrorMessage(error, "").toLowerCase();
+  return message.includes("column reference") && message.includes("ambiguous");
+}
+
 function shouldFallbackToManualTicket(error: unknown): boolean {
-  return isOnConflictTargetMismatch(error) || isBackofficeRlsInsertViolation(error);
+  return isOnConflictTargetMismatch(error) || isBackofficeRlsInsertViolation(error) || isColumnAmbiguityError(error);
 }
 
 async function findOpenLiveSupportTicket(
@@ -247,9 +253,9 @@ async function assignSupportAgentIfUnassigned(ticketId: string): Promise<void> {
     return;
   }
 
-  const agentIds = supportAgents
-    .map((row: any) => row.user_id)
-    .filter((value: unknown): value is string => typeof value === "string" && value.length > 0);
+  const agentIds = (supportAgents as { user_id: unknown }[])
+    .map((row) => row.user_id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
 
   if (agentIds.length === 0) {
     return;
@@ -269,8 +275,8 @@ async function assignSupportAgentIfUnassigned(ticketId: string): Promise<void> {
   for (const agentId of agentIds) {
     workload.set(agentId, 0);
   }
-  for (const row of activeTickets ?? []) {
-    const assigned = typeof (row as any).assigned_to_user_id === "string" ? (row as any).assigned_to_user_id : null;
+  for (const row of (activeTickets ?? []) as { assigned_to_user_id: unknown }[]) {
+    const assigned = typeof row.assigned_to_user_id === "string" ? row.assigned_to_user_id : null;
     if (!assigned || !workload.has(assigned)) continue;
     workload.set(assigned, (workload.get(assigned) ?? 0) + 1);
   }

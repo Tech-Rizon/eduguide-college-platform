@@ -661,7 +661,11 @@ FOR EACH ROW
 EXECUTE FUNCTION public.create_backoffice_ticket_from_support_request();
 
 CREATE OR REPLACE FUNCTION public.auto_assign_backoffice_ticket()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   desired_team TEXT;
   chosen_user_id UUID;
@@ -701,7 +705,7 @@ BEGIN
   UPDATE public.backoffice_tickets
   SET assigned_to_user_id = chosen_user_id,
       assigned_team = desired_team,
-      status = CASE WHEN status = 'new' THEN 'assigned' ELSE status END,
+      status = CASE WHEN NEW.status = 'new' THEN 'assigned' ELSE NEW.status END,
       assigned_at = NOW()
   WHERE id = NEW.id;
 
@@ -728,7 +732,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS trg_backoffice_tickets_auto_assign ON public.backoffice_tickets;
 CREATE TRIGGER trg_backoffice_tickets_auto_assign
@@ -1060,6 +1064,8 @@ WHERE breach_at IS NULL;
 CREATE OR REPLACE FUNCTION public.apply_ticket_first_response()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NEW.visibility = 'public'
