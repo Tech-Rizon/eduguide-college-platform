@@ -21,7 +21,7 @@ function openLiveAdvisor(message?: string, urgent = false) {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <motion.div
@@ -330,7 +330,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.4 }}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white mt-20"
+          className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white mt-20"
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Find Your Perfect College?</h2>
           <p className="text-lg mb-8 opacity-90 max-w-2xl mx-auto">

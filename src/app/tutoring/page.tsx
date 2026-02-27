@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ import {
   Video
 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 
 function openLiveAdvisor(message: string) {
@@ -134,14 +136,31 @@ export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const [referralTouched, setReferralTouched] = useState(false);
-  const normalizedReferralCode = referralCode.trim().toUpperCase();
+  const searchParams = useSearchParams();
+  const { session } = useAuth();
+  const normalizedReferralCode = referralCode.trim().toLowerCase();
   const isReferralApplied = normalizedReferralCode.length > 0;
+
+  // Pre-populate referral code from URL ?ref= param and track click
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferralCode(ref);
+      // Fire-and-forget click tracking
+      fetch('/api/referral/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: ref }),
+      }).catch(() => {/* silent */});
+    }
+  }, [searchParams]);
+
   // Read published Stripe Price IDs from environment (set these on Vercel)
   const BASIC_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC ?? ''
   const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
   const ELITE_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? ''
 
-  // handleCheckout requires a Stripe Price ID. Inline amounts were removed.
+  // handleCheckout requires a Stripe Price ID for a monthly recurring price.
   const handleCheckout = async (priceId: string | undefined, planName?: string) => {
     if (!priceId) {
       toast.error('Payment not configured. Please contact support.');
@@ -150,13 +169,18 @@ export default function TutoringPage() {
 
     try {
       setLoadingPlan(planName ?? null);
-      const payload: { plan?: string; priceId: string; referralCode?: string } = {
+      const payload: { plan?: string; priceId: string; referralCode?: string; userEmail?: string } = {
         plan: planName,
         priceId,
       };
 
       if (isReferralApplied) {
         payload.referralCode = normalizedReferralCode;
+      }
+
+      // Pass authenticated email so Stripe can match existing customers
+      if (session?.user?.email) {
+        payload.userEmail = session.user.email;
       }
 
       const res = await fetch('/api/checkout', {
@@ -185,21 +209,20 @@ export default function TutoringPage() {
     }
   };
 
-  const formatPrice = (hourlyRate: number) => {
-    const discountedRate = hourlyRate * 0.7;
-
+  const formatPrice = (monthlyRate: number) => {
+    const discountedRate = monthlyRate * 0.7;
     return {
-      original: `$${hourlyRate}/hr`,
-      discounted: `$${discountedRate.toFixed(2)}/hr`,
+      original: `$${monthlyRate}/mo`,
+      discounted: `$${discountedRate.toFixed(0)}/mo`,
     };
   };
 
-  const basicPrice = formatPrice(25);
-  const premiumPrice = formatPrice(45);
-  const elitePrice = formatPrice(75);
+  const basicPrice = formatPrice(49);
+  const premiumPrice = formatPrice(89);
+  const elitePrice = formatPrice(149);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -418,9 +441,9 @@ export default function TutoringPage() {
                 </div>
                 <div className="text-sm text-gray-700 md:text-right">
                   {isReferralApplied ? (
-                    <p className="font-semibold text-green-700">Referral ready: 30% discount will be applied at checkout.</p>
+                    <p className="font-semibold text-green-700">Referral ready: 30% off your first month will be applied at checkout.</p>
                   ) : (
-                    <p>Enter a valid code to unlock 30% off all plans.</p>
+                    <p>Enter a referral code to unlock 30% off your first month.</p>
                   )}
                   {referralTouched && !isReferralApplied && (
                     <p className="text-xs text-gray-500 mt-1">Tip: your code is validated securely during checkout.</p>
@@ -565,7 +588,7 @@ export default function TutoringPage() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.3, duration: 0.6 }}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white"
+          className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white"
         >
           <h2 className="text-3xl font-bold mb-4">Ready to Excel in Your Studies?</h2>
           <p className="text-xl mb-8 opacity-90">

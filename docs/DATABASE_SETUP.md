@@ -4,70 +4,18 @@
 
 ### Database Migrations
 
-Five SQL migration files have been created to set up your Supabase database.
-
-One-document alternative:
+The database is now maintained as a single consolidated SQL file:
 - `db/supabase_all_in_one.sql` (contains all migrations in order)
 
-#### `db/migrations/20260104_create_payments_table.sql`
-
-Creates the `payments` table for storing Stripe transaction records with:
-
-- Payment session tracking (`session_id`, `payment_intent_id`)
-- Customer information (`email`, `user_id`)
-- Payment details (`amount`, `currency`, `status`)
-- Stripe metadata and receipt URL
-- Row-level security (RLS) policies
-- Automatic timestamp triggers
-
-#### `db/migrations/20260105_create_user_and_tutoring_tables.sql`
-
-Creates three tables:
-
-**`user_profiles`** - Stores user account information
-
-- Basic fields: `email`, `full_name`, `phone`, `location`, `bio`
-- Profile picture: `avatar_url`
-- Automatically synced with Supabase auth users
-
-**`user_settings`** - Stores user preferences
-
-- Notification settings (all notifications, email, marketing)
-- UI preferences (`theme`, `language`)
-- Per-user privacy controls
-
-**`tutoring_requests`** - Stores tutoring session requests
-
-- Request details: `category`, `subject`, `description`, `priority`
-- Status tracking: `new`, `assigned`, `in_progress`, `completed`
-- Tutor assignment with optional `scheduled_date`
-- Automatic timestamps
-
-#### `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
-
-Creates role and operations tables:
-
-- `user_roles`
-- `student_dashboard_metrics`
-- `staff_dashboard_metrics`
-- `admin_audit_logs`
-
-#### `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
-
-Normalizes role modeling in `user_roles`:
-
-- `role`: `student` or `staff`
-- `staff_level` (when `role = staff`): `tutor`, `staff`, `admin`
-- Backfills legacy rows where role was directly `tutor/staff/admin`
-
-#### `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
-
-Adds enterprise backoffice operations:
-
-- Expands `staff_level` to `tutor`, `support`, `manager`, `super_admin`
-- Creates `support_requests`, `backoffice_tickets`, `backoffice_ticket_events`
-- Auto-creates tickets from tutoring/support requests
-- Auto-assigns tickets to least-loaded tutor/support staff
+It includes:
+- core account tables
+- tutoring tables
+- payments
+- roles and dashboard metrics
+- backoffice ticketing
+- username support
+- referral and subscription tables
+- functions, triggers, indexes, and RLS policies
 
 ### API Endpoints
 
@@ -125,34 +73,7 @@ Response: { request: { id, ... }, status: 201 }
 ### 1. Apply Database Migrations
 
 Go to your Supabase dashboard and either:
-- Run `db/supabase_all_in_one.sql` once, or
-- Run the individual SQL files below in order.
-
-**Step 1:** Run `db/migrations/20260104_create_payments_table.sql`
-
-1. Supabase Dashboard -> SQL Editor -> New Query
-2. Copy the entire file contents
-3. Click **Run**
-
-**Step 2:** Run `db/migrations/20260105_create_user_and_tutoring_tables.sql`
-
-1. Supabase Dashboard -> SQL Editor -> New Query
-2. Copy the entire file contents
-3. Click **Run**
-
-**Step 3:** Run `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
-
-1. Supabase Dashboard -> SQL Editor -> New Query
-2. Copy the entire file contents
-3. Click **Run**
-
-**Step 4:** Run `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
-
-1. Supabase Dashboard -> SQL Editor -> New Query
-2. Copy the entire file contents
-3. Click **Run**
-
-**Step 5:** Run `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
+- Run `db/supabase_all_in_one.sql` once.
 
 1. Supabase Dashboard -> SQL Editor -> New Query
 2. Copy the entire file contents
@@ -162,17 +83,23 @@ Go to your Supabase dashboard and either:
 
 Go to **Table Editor** and confirm these tables exist:
 
-- `payments` (from migration 1)
-- `user_profiles` (from migration 2)
-- `user_settings` (from migration 2)
-- `tutoring_requests` (from migration 2)
-- `user_roles` (migrations 3 and 4)
-- `student_dashboard_metrics` (migration 3)
-- `staff_dashboard_metrics` (migration 3)
-- `admin_audit_logs` (migration 3)
-- `support_requests` (migration 5)
-- `backoffice_tickets` (migration 5)
-- `backoffice_ticket_events` (migration 5)
+- `payments`
+- `user_profiles`
+- `user_settings`
+- `tutoring_requests`
+- `user_roles`
+- `student_dashboard_metrics`
+- `staff_dashboard_metrics`
+- `admin_audit_logs`
+- `support_requests`
+- `backoffice_tickets`
+- `backoffice_ticket_events`
+- `backoffice_ticket_messages`
+- `backoffice_ticket_internal_notes`
+- `backoffice_ticket_attachments`
+- `referral_codes`
+- `referrals`
+- `subscriptions`
 
 ### 3. Test API Endpoints Locally
 

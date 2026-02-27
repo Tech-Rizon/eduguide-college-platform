@@ -170,7 +170,7 @@ export default function ProfilePage() {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
@@ -178,7 +178,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-6 py-12 flex flex-col items-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 px-6 py-12 flex flex-col items-center">
         <div className="flex items-center space-x-2 mb-8">
           <GraduationCap className="h-8 w-8 text-blue-600" />
           <span className="text-2xl font-bold text-gray-900">EduGuide</span>
@@ -211,7 +211,7 @@ export default function ProfilePage() {
   ).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Nav */}
       <nav className="bg-white border-b shadow-sm">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">

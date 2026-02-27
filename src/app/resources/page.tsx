@@ -136,7 +136,7 @@ function downloadChecklist(playbook: Playbook) {
 
 export default function ResourcesPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50">
+    <div className="min-h-screen bg-linear-to-br from-cyan-50 via-white to-blue-50">
       <nav className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <GraduationCap className="h-8 w-8 text-cyan-700" />

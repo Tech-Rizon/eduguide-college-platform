@@ -229,7 +229,7 @@ export default function MfaSetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-100">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-100">
       <nav className="flex items-center justify-between p-6 max-w-5xl mx-auto">
         <Link href="/login">
           <Button variant="outline" className="border-slate-700 bg-transparent hover:bg-slate-800">

@@ -25,7 +25,7 @@ export function ProtectedRoute({ children, redirectTo = '/login' }: ProtectedRou
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-blue-50 via-white to-purple-50">
         <div className="flex flex-col items-center gap-4">
           <GraduationCap className="h-12 w-12 text-blue-600 animate-pulse" />
           <div className="h-8 w-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />

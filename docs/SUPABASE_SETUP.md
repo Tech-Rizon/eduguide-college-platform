@@ -31,54 +31,12 @@ After your project is created:
 
 ### Step 3: Apply Database Migrations
 
-Quick option: run one combined script file:
+Run the single combined database script:
 - `db/supabase_all_in_one.sql`
 
-Manual option: run individual migration files in order:
-There are five migration files to apply:
-
-#### Migration 1: Payments Table
-File: `db/migrations/20260104_create_payments_table.sql`
-
 1. In Supabase, go to **SQL Editor**
 2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260104_create_payments_table.sql`
-4. Paste into the SQL editor
-5. Click **Run**
-
-#### Migration 2: User Profiles & Tutoring Tables
-File: `db/migrations/20260105_create_user_and_tutoring_tables.sql`
-
-1. In Supabase, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260105_create_user_and_tutoring_tables.sql`
-4. Paste into the SQL editor
-5. Click **Run**
-
-#### Migration 3: Roles & Dashboard Tables
-File: `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
-
-1. In Supabase, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260106_create_roles_and_dashboard_tables.sql`
-4. Paste into the SQL editor
-5. Click **Run**
-
-#### Migration 4: Role Normalization (Student/Staff + Staff Levels)
-File: `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
-
-1. In Supabase, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260217_normalize_user_roles_and_staff_levels.sql`
-4. Paste into the SQL editor
-5. Click **Run**
-
-#### Migration 5: Backoffice Ticketing + Auto Assignment
-File: `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
-
-1. In Supabase, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
+3. Copy the entire contents of `db/supabase_all_in_one.sql`
 4. Paste into the SQL editor
 5. Click **Run**
 
@@ -97,6 +55,12 @@ File: `db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql`
    - `support_requests`
    - `backoffice_tickets`
    - `backoffice_ticket_events`
+   - `backoffice_ticket_messages`
+   - `backoffice_ticket_internal_notes`
+   - `backoffice_ticket_attachments`
+   - `referral_codes`
+   - `referrals`
+   - `subscriptions`
 
 ### Step 5: Configure Authentication
 

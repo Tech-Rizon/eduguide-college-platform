@@ -539,7 +539,7 @@ export default function LiveSupportWidget() {
             className="mb-3 sm:mb-4 origin-bottom-right"
           >
             <Card className="w-[calc(100vw-1rem)] max-w-[26rem] shadow-2xl border-cyan-700/40 bg-slate-950 text-slate-100 max-h-[calc(100dvh-5.5rem)] sm:max-h-[calc(100dvh-6rem)] flex flex-col overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-cyan-700 to-blue-700 rounded-t-lg py-3 px-4 shrink-0">
+              <CardHeader className="bg-linear-to-r from-cyan-700 to-blue-700 rounded-t-lg py-3 px-4 shrink-0">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Headphones className="h-4 w-4" />

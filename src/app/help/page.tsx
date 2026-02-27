@@ -40,7 +40,7 @@ const faqs = [
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -202,7 +202,7 @@ export default function HelpPage() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.6 }}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white"
+          className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-center text-white"
         >
           <h2 className="text-3xl font-bold mb-4">Still Need Help?</h2>
           <p className="text-xl mb-8 opacity-90">

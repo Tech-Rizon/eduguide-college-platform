@@ -11,7 +11,9 @@
 -- 4) 20260217_normalize_user_roles_and_staff_levels.sql
 -- 5) 20260218_backoffice_ticketing_and_auto_assignment.sql
 -- 6) 20260219_enterprise_backoffice_hardening.sql
--- 7) 20260225_add_usernames_to_user_profiles.sql
+-- 7) 20260225_fix_trigger_security_definer.sql
+-- 8) 20260225_add_usernames_to_user_profiles.sql
+-- 9) 20260227_referral_and_subscriptions.sql
 --
 -- WARNING:
 -- - Optional DROP TABLE statements are commented out by default.
@@ -23,7 +25,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =============================================================================
 -- 1) Payments Table
--- Source: db/migrations/20260104_create_payments_table.sql
+-- Consolidated section: payments
 -- =============================================================================
 
 -- Optional clean reset (disabled by default to preserve data):
@@ -86,7 +88,7 @@ CREATE TRIGGER payments_set_updated_at
 
 -- =============================================================================
 -- 2) User Profile, Settings, Tutoring Tables
--- Source: db/migrations/20260105_create_user_and_tutoring_tables.sql
+-- Consolidated section: user profiles, settings, tutoring
 -- =============================================================================
 
 -- Optional clean reset (disabled by default to preserve data):
@@ -256,7 +258,7 @@ FOR ALL USING (auth.role() = 'service_role');
 
 -- =============================================================================
 -- 3) Enterprise Roles + Dashboard Tables
--- Source: db/migrations/20260106_create_roles_and_dashboard_tables.sql
+-- Consolidated section: roles and dashboard tables
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.user_roles (
@@ -365,7 +367,7 @@ WITH CHECK (auth.role() = 'service_role');
 
 -- =============================================================================
 -- 4) Role Normalization: student|staff + staff_level
--- Source: db/migrations/20260217_normalize_user_roles_and_staff_levels.sql
+-- Consolidated section: role normalization
 -- =============================================================================
 
 ALTER TABLE public.user_roles
@@ -418,7 +420,7 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_staff_level ON public.user_roles(staff
 
 -- =============================================================================
 -- 5) Backoffice Ticketing + Auto Assignment
--- Source: db/migrations/20260218_backoffice_ticketing_and_auto_assignment.sql
+-- Consolidated section: backoffice ticketing and auto-assignment
 -- =============================================================================
 
 ALTER TABLE public.user_roles
@@ -843,7 +845,7 @@ WITH CHECK (auth.role() = 'service_role');
 
 -- =============================================================================
 -- 6) Enterprise Backoffice Hardening
--- Source: db/migrations/20260219_enterprise_backoffice_hardening.sql
+-- Consolidated section: backoffice hardening
 -- =============================================================================
 
 -- Enterprise hardening for backoffice:
@@ -1326,7 +1328,7 @@ WITH CHECK (auth.role() = 'service_role');
 
 -- =============================================================================
 -- 7) Usernames for Student Profiles
--- Source: db/migrations/20260225_add_usernames_to_user_profiles.sql
+-- Consolidated section: usernames on user profiles
 -- =============================================================================
 
 ALTER TABLE public.user_profiles
@@ -1350,6 +1352,109 @@ CHECK (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_username_unique
 ON public.user_profiles (LOWER(username))
 WHERE username IS NOT NULL;
+
+-- =============================================================================
+-- 8) Referral Program & Subscriptions
+-- Consolidated section: referrals and subscriptions
+-- =============================================================================
+
+-- referral_codes: one row per student — their unique shareable code
+CREATE TABLE IF NOT EXISTS public.referral_codes (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  code       TEXT        NOT NULL UNIQUE,
+  clicks     INTEGER     NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS referral_codes_code_idx    ON public.referral_codes (code);
+CREATE INDEX IF NOT EXISTS referral_codes_user_id_idx ON public.referral_codes (user_id);
+
+ALTER TABLE public.referral_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own referral code" ON public.referral_codes;
+CREATE POLICY "Users can view own referral code"
+  ON public.referral_codes FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "No direct write for anon/auth on referral_codes" ON public.referral_codes;
+CREATE POLICY "No direct write for anon/auth on referral_codes"
+  ON public.referral_codes FOR ALL
+  TO anon, authenticated
+  USING (FALSE)
+  WITH CHECK (FALSE);
+
+-- referrals: tracks each referral event
+CREATE TABLE IF NOT EXISTS public.referrals (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  referee_email      TEXT,
+  referee_user_id    UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  code               TEXT        NOT NULL,
+  status             TEXT        NOT NULL DEFAULT 'pending',
+  stripe_session_id  TEXT,
+  reward_coupon_id   TEXT,
+  reward_expires_at  TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  converted_at       TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS referrals_referrer_id_idx ON public.referrals (referrer_id);
+CREATE INDEX IF NOT EXISTS referrals_code_idx        ON public.referrals (code);
+CREATE INDEX IF NOT EXISTS referrals_status_idx      ON public.referrals (status);
+
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own referrals" ON public.referrals;
+CREATE POLICY "Users can view own referrals"
+  ON public.referrals FOR SELECT
+  USING (auth.uid() = referrer_id);
+
+DROP POLICY IF EXISTS "No direct write for anon/auth on referrals" ON public.referrals;
+CREATE POLICY "No direct write for anon/auth on referrals"
+  ON public.referrals FOR ALL
+  TO anon, authenticated
+  USING (FALSE)
+  WITH CHECK (FALSE);
+
+-- subscriptions: mirrors Stripe subscription state per user
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  stripe_customer_id     TEXT,
+  stripe_subscription_id TEXT        UNIQUE,
+  plan                   TEXT,
+  status                 TEXT,
+  current_period_end     TIMESTAMPTZ,
+  cancel_at_period_end   BOOLEAN     NOT NULL DEFAULT FALSE,
+  price_id               TEXT,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS subscriptions_user_id_idx                ON public.subscriptions (user_id);
+CREATE INDEX IF NOT EXISTS subscriptions_stripe_customer_id_idx     ON public.subscriptions (stripe_customer_id);
+CREATE INDEX IF NOT EXISTS subscriptions_stripe_subscription_id_idx ON public.subscriptions (stripe_subscription_id);
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
+CREATE POLICY "Users can view own subscription"
+  ON public.subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "No direct write for anon/auth on subscriptions" ON public.subscriptions;
+CREATE POLICY "No direct write for anon/auth on subscriptions"
+  ON public.subscriptions FOR ALL
+  TO anon, authenticated
+  USING (FALSE)
+  WITH CHECK (FALSE);
+
+DROP TRIGGER IF EXISTS subscriptions_set_updated_at ON public.subscriptions;
+CREATE TRIGGER subscriptions_set_updated_at
+  BEFORE UPDATE ON public.subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trigger_set_updated_at();
 
 -- =============================================================================
 -- End of all-in-one Supabase database script.

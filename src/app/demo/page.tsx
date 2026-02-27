@@ -130,7 +130,7 @@ export default function DemoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
           <GraduationCap className="h-8 w-8 text-blue-600" />
@@ -335,7 +335,7 @@ export default function DemoPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center text-white"
+          className="mt-16 bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center text-white"
         >
           <h2 className="text-2xl font-bold mb-4">Ready for the Full Experience?</h2>
           <p className="text-lg mb-6 opacity-90">

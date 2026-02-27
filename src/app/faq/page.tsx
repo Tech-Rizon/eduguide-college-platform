@@ -36,7 +36,7 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -87,7 +87,7 @@ export default function FAQPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
-          className="mt-12 text-center p-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg"
+          className="mt-12 text-center p-8 bg-linear-to-r from-blue-500 to-purple-600 text-white rounded-lg"
         >
           <h2 className="text-3xl font-bold mb-4">Still have questions?</h2>
           <p className="mb-6 text-lg opacity-90">We're here to help. Get in touch with our support team.</p>

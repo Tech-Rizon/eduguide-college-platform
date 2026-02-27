@@ -6,7 +6,8 @@
       "Bash(cmd.exe /c \"where gh\")",
       "Bash(winget install:*)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(xargs sed -i 's/bg-gradient-to-/bg-linear-to-/g')"
     ]
   }
 }
