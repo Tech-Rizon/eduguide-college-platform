@@ -129,7 +129,7 @@ export default function ContactPage() {
               <CardTitle>Phone</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">(555) 123-4567</p>
+              <p className="text-gray-600">(509) 934-4590</p>
               <p className="text-sm text-gray-500 mt-2">Mon-Fri 9am-5pm EST</p>
             </CardContent>
           </Card>

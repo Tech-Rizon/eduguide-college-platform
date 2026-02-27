@@ -42,7 +42,8 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
-import { processMessage, type UserProfile } from "@/lib/aiEngine";
+import type { UserProfile } from "@/lib/aiEngine";
+import type { AIChatResponse, AIChatSource } from "@/lib/aiChatTypes";
 import type { CollegeEntry } from "@/lib/collegeDatabase";
 
 interface Message {
@@ -51,6 +52,8 @@ interface Message {
   sender: "user" | "ai";
   timestamp: Date;
   colleges?: CollegeEntry[];
+  sources?: AIChatSource[];
+  followUpQuestions?: string[];
 }
 
 interface DashboardUser {
@@ -123,12 +126,28 @@ function parseStoredUserProfile(rawValue: string | null): Partial<UserProfile> {
 }
 
 function buildWelcomeMessage(name: string): string {
-  return `Welcome back, ${name}! I'm your AI college guidance assistant powered by EduGuide's recommendation engine.\n\nI can analyze your academic profile and match you with the best colleges and universities. Here's what I can help with:\n\n**College Matching** - Tell me your GPA, preferred location, and interests\n**Financial Aid** - Find scholarships and funding options\n**Admissions** - Application requirements and deadlines\n**Community Colleges** - Transfer pathways and affordable options\n**Test Prep** - SAT/ACT guidance\n**Essay Help** - Personal statement tips\n\nTry saying: *"My GPA is 3.2 and I'm interested in computer science in California"*`;
+  return `Welcome back, ${name}. I'm your research-backed EduGuide assistant.\n\nI can match schools to your profile, pull fresh details from official college sites, and help you think through applications, transfer plans, and academic decisions without making the chat feel robotic.\n\n**What I can help with right now:**\n- College matching based on GPA, budget, state, and interests\n- Official-site research on programs, admissions, aid, and student support\n- School comparisons, shortlist strategy, and next-step planning\n- Free assignment support inside your account: prompt breakdowns, concept explanations, outlines, study plans, and draft feedback\n\nTry saying: *"I want a strong computer science school in California with real aid and internship options."*`;
 }
 
 function createMessageId(prefix: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeUserProfile(currentProfile: UserProfile, updates?: Partial<UserProfile>): UserProfile {
+  if (!updates) return currentProfile;
+
+  const mergeUnique = (values: string[] | undefined) =>
+    values ? Array.from(new Set(values.filter(Boolean))) : undefined;
+
+  return {
+    ...currentProfile,
+    ...updates,
+    demographics: mergeUnique([...(currentProfile.demographics || []), ...(updates.demographics || [])]),
+    interests: mergeUnique([...(currentProfile.interests || []), ...(updates.interests || [])]),
+    preferredStates: mergeUnique([...(currentProfile.preferredStates || []), ...(updates.preferredStates || [])]),
+    schoolType: mergeUnique([...(currentProfile.schoolType || []), ...(updates.schoolType || [])]),
+  };
 }
 
 function openLiveAdvisor(message: string) {
@@ -167,7 +186,7 @@ export default function DashboardPage() {
   const hasHydratedLocalProfileRef = useRef(false);
   const [hasLoadedProfileRecord, setHasLoadedProfileRecord] = useState(false);
 
-  const { user: authUser, loading, signOut, session } = useAuth();
+  const { user: authUser, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (loading) return;
@@ -395,6 +414,8 @@ export default function DashboardPage() {
       hasAutoPromptedProfileRef.current = true;
       openProfileCompletionDialog();
     }
+    // openProfileCompletionDialog is stable: it only calls state setters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hasLoadedProfileRecord, isLoadingProfileRecord, profileRecord?.username]);
 
   const sendMessage = async () => {
@@ -412,40 +433,68 @@ export default function DashboardPage() {
     setInputMessage("");
     setIsTyping(true);
 
-    // Process with AI engine
-    window.setTimeout(() => {
-      try {
-        const aiResponse = processMessage(
-          currentInput,
-          userProfile,
-          profileRecord?.username || user?.firstName
-        );
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
-        // Update user profile with extracted info
-        if (aiResponse.profileUpdates) {
-          setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
-        }
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          currentProfile: userProfile,
+          history: [
+            ...messages.slice(-13).map((message) => ({
+              role: message.sender === "user" ? "user" : "assistant",
+              content: message.content,
+            })),
+            {
+              role: "user" as const,
+              content: currentInput,
+            },
+          ],
+          message: currentInput,
+          mode: "dashboard",
+          userName: profileRecord?.username || user?.firstName,
+        }),
+      });
 
-        const aiMessage: Message = {
+      const payload = (await response.json().catch(() => ({}))) as AIChatResponse & { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Chat request failed");
+      }
+
+      if (payload.profileUpdates) {
+        setUserProfile((prev) => mergeUserProfile(prev, payload.profileUpdates));
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
           id: createMessageId("ai"),
-          content: aiResponse.content,
+          content: payload.content,
           sender: "ai",
           timestamp: new Date(),
-          colleges: aiResponse.colleges,
-        };
-
-        setMessages(prev => [...prev, aiMessage]);
-      } catch {
-        setMessages(prev => [...prev, {
+          colleges: payload.colleges,
+          sources: payload.sources,
+          followUpQuestions: payload.followUpQuestions,
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
           id: createMessageId("ai-error"),
           content: "I ran into an issue generating that response. Please try again.",
           sender: "ai",
           timestamp: new Date(),
-        }]);
-      } finally {
-        setIsTyping(false);
-      }
-    }, 800 + Math.random() * 700);
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleQuickAction = (prompt: string) => {
@@ -712,14 +761,14 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bot className="h-6 w-6 text-blue-600" />
-                  <CardTitle>AI College Guidance Assistant</CardTitle>
+                  <CardTitle>High-End College & Study AI</CardTitle>
                   <Badge variant="secondary" className="ml-2">
                     <Sparkles className="h-3 w-3 mr-1" />
-                    Smart Matching
+                    Research + Fit
                   </Badge>
                 </div>
                 <CardDescription>
-                  Share your GPA, location, and interests for personalized college recommendations
+                  Ask naturally. The assistant will clarify what matters, pull official-school details when needed, and help with free assignment support inside your account.
                 </CardDescription>
               </CardHeader>
 
@@ -750,6 +799,27 @@ export default function DashboardPage() {
                               : "bg-gray-100 text-gray-900"
                           }`}>
                             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+
+                            {message.sources && message.sources.length > 0 && (
+                              <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fresh official site notes</p>
+                                <div className="mt-2 space-y-2">
+                                  {message.sources.map((source) => (
+                                    <div key={`${source.url}-${source.title}`} className="text-xs text-gray-600">
+                                      <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-medium text-blue-600 hover:text-blue-800"
+                                      >
+                                        {source.title}
+                                      </a>
+                                      <p className="mt-1 leading-relaxed">{source.note}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             {message.colleges && message.colleges.length > 0 && (
                               <div className="mt-4 space-y-3">
@@ -818,6 +888,29 @@ export default function DashboardPage() {
                                 ))}
                               </div>
                             )}
+
+                            {/* Follow-up question chips */}
+                            {message.sender === "ai" && message.followUpQuestions && message.followUpQuestions.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {message.followUpQuestions.slice(0, 3).map((q) => (
+                                  <button
+                                    key={q}
+                                    type="button"
+                                    onClick={() => {
+                                      setInputMessage(q);
+                                      // Focus the input after setting
+                                      setTimeout(() => {
+                                        const input = document.querySelector<HTMLInputElement>('input[placeholder*="Try:"]');
+                                        input?.focus();
+                                      }, 50);
+                                    }}
+                                    className="text-xs bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 rounded-full px-3 py-1.5 transition-colors text-left"
+                                  >
+                                    {q}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </motion.div>
@@ -832,7 +925,7 @@ export default function DashboardPage() {
                           <div className="bg-gray-100 rounded-lg px-4 py-3">
                             <div className="flex space-x-1 items-center">
                               <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
-                              <span className="text-xs text-gray-500 mr-2">Analyzing...</span>
+                              <span className="text-xs text-gray-500 mr-2">Researching your options...</span>
                               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-100" />
                               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
@@ -851,7 +944,7 @@ export default function DashboardPage() {
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder='Try: "My GPA is 3.2 and I want to study nursing in Texas"'
+                    placeholder='Try: "I need affordable nursing schools with strong support and clean transfer paths"'
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                     disabled={isTyping}
                   />

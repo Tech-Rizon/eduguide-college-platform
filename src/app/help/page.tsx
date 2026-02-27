@@ -138,9 +138,9 @@ export default function HelpPage() {
             <CardContent>
               <p className="text-gray-600 mb-4">
                 Our phone lines are open Monday – Friday, 9am – 5pm. Call us at
-                <strong> +1-800-555-1234</strong> for immediate assistance.
+                <strong> (509) 934-4590</strong> for immediate assistance.
               </p>
-              <Link href="tel:+18005551234">
+              <Link href="tel:+15099344590">
                 <Button>Call Now</Button>
               </Link>
             </CardContent>

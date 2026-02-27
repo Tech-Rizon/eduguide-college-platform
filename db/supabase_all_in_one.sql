@@ -14,6 +14,7 @@
 -- 7) 20260225_fix_trigger_security_definer.sql
 -- 8) 20260225_add_usernames_to_user_profiles.sql
 -- 9) 20260227_referral_and_subscriptions.sql
+-- 10) 20260227_checkout_recovery_tracking.sql
 --
 -- WARNING:
 -- - Optional DROP TABLE statements are commented out by default.
@@ -83,6 +84,56 @@ $$;
 DROP TRIGGER IF EXISTS payments_set_updated_at ON public.payments;
 CREATE TRIGGER payments_set_updated_at
   BEFORE UPDATE ON public.payments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trigger_set_updated_at();
+
+-- =============================================================================
+-- 1b) Checkout Recovery Tracking
+-- Consolidated section: Stripe checkout recovery tracking
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.checkout_recovery_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_checkout_session_id TEXT NOT NULL UNIQUE,
+  stripe_checkout_url TEXT,
+  customer_email TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  plan TEXT,
+  price_id TEXT,
+  referral_code TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed', 'expired')),
+  recovery_email_sent_at TIMESTAMPTZ,
+  recovery_email_last_attempt_at TIMESTAMPTZ,
+  recovery_email_attempts INTEGER NOT NULL DEFAULT 0,
+  recovery_email_error TEXT,
+  completed_at TIMESTAMPTZ,
+  expired_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS checkout_recovery_sessions_status_idx
+  ON public.checkout_recovery_sessions (status);
+CREATE INDEX IF NOT EXISTS checkout_recovery_sessions_created_at_idx
+  ON public.checkout_recovery_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS checkout_recovery_sessions_customer_email_idx
+  ON public.checkout_recovery_sessions (customer_email);
+CREATE INDEX IF NOT EXISTS checkout_recovery_sessions_recovery_email_sent_at_idx
+  ON public.checkout_recovery_sessions (recovery_email_sent_at);
+
+ALTER TABLE public.checkout_recovery_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "No direct access for anon/auth on checkout recovery" ON public.checkout_recovery_sessions;
+CREATE POLICY "No direct access for anon/auth on checkout recovery"
+  ON public.checkout_recovery_sessions
+  FOR ALL
+  TO anon, authenticated
+  USING (FALSE)
+  WITH CHECK (FALSE);
+
+DROP TRIGGER IF EXISTS checkout_recovery_sessions_set_updated_at ON public.checkout_recovery_sessions;
+CREATE TRIGGER checkout_recovery_sessions_set_updated_at
+  BEFORE UPDATE ON public.checkout_recovery_sessions
   FOR EACH ROW
   EXECUTE FUNCTION public.trigger_set_updated_at();
 

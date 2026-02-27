@@ -24,39 +24,8 @@ export interface AIResponse {
   followUpQuestions?: string[];
 }
 
-const TRADING_SYSTEM_KEYWORDS = [
-  "fx",
-  "forex",
-  "xauusd",
-  "mt5",
-  "oanda",
-  "broker",
-  "take profit",
-  "stop loss",
-  "order block",
-  "liquidity sweep",
-  "choch",
-  "backtest",
-  "paper trading",
-  "risk orchestrator",
-  "position sizing",
-  "trailing stop",
-  "kill switch",
-  "flatten positions",
-  "trade execution",
-];
-
-function escapeRegexLiteral(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isOutOfScopeTradingRequest(message: string): boolean {
-  const lower = message.toLowerCase();
-  return TRADING_SYSTEM_KEYWORDS.some((keyword) => {
-    if (keyword.includes(" ")) return lower.includes(keyword);
-    const pattern = new RegExp(`\\b${escapeRegexLiteral(keyword)}\\b`, "i");
-    return pattern.test(lower);
-  });
+function mergeUnique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
 }
 
 // State abbreviation mapping
@@ -330,6 +299,7 @@ function detectIntent(message: string): string {
   const lower = message.toLowerCase();
 
   if (lower.match(/\b(hello|hi|hey|good morning|good afternoon|good evening|howdy|what's up|sup)\b/)) return "greeting";
+  if (lower.match(/\b(assignment|homework|hw|paper|discussion post|worksheet|lab report|quiz prep|study guide|project help|draft|outline|rubric|prompt|thesis|dissertation)\b/)) return "assignment-help";
   if (lower.match(/\b(recommend|suggest|find|best|which|what.*college|help me (find|choose|pick|decide)|match|good for me)\b/)) return "recommendation";
   if (lower.match(/\b(gpa|grade point|grades?|transcript|academic)\b/)) return "gpa-discussion";
   if (lower.match(/\b(financial aid|fafsa|scholarship|grant|loan|money|cost|afford|tuition|pay for)\b/)) return "financial-aid";
@@ -350,18 +320,6 @@ export function processMessage(
   currentProfile: UserProfile,
   userName?: string
 ): AIResponse {
-  if (isOutOfScopeTradingRequest(userMessage)) {
-    return {
-      content: "I can’t help with live or simulated trading system design, execution, or risk controls in this EduGuide assistant. I’m scoped to college guidance only (school matching, admissions, financial aid, and tutoring support). If you want, I can still help with education planning or college recommendations.",
-      profileUpdates: {},
-      followUpQuestions: [
-        "What GPA should I use for your college matches?",
-        "Which state or region are you targeting for school?",
-        "What major or career path are you considering?",
-      ],
-    };
-  }
-
   const intent = detectIntent(userMessage);
   const profileUpdates: Partial<UserProfile> = {};
 
@@ -372,7 +330,7 @@ export function processMessage(
   const state = extractState(userMessage);
   if (state) {
     profileUpdates.state = state;
-    profileUpdates.preferredStates = [...(currentProfile.preferredStates || []), state];
+    profileUpdates.preferredStates = mergeUnique([...(currentProfile.preferredStates || []), state]);
   }
 
   const major = extractMajor(userMessage);
@@ -391,7 +349,9 @@ export function processMessage(
   if (actScore) profileUpdates.actScore = actScore;
 
   const demographics = extractDemographics(userMessage);
-  if (demographics) profileUpdates.demographics = [...(currentProfile.demographics || []), ...demographics];
+  if (demographics) {
+    profileUpdates.demographics = mergeUnique([...(currentProfile.demographics || []), ...demographics]);
+  }
 
   // Merge profile for scoring
   const updatedProfile = { ...currentProfile, ...profileUpdates };
@@ -400,8 +360,22 @@ export function processMessage(
   switch (intent) {
     case "greeting":
       return {
-        content: `Hi ${greeting}! I'm your EduGuide AI college advisor. I'm here to help you find the perfect college or university based on your unique situation.\n\nTo give you the best recommendations, I'd love to know:\n\n**1. What's your current GPA?** (e.g., "My GPA is 3.2")\n**2. Where are you located or where would you like to study?**\n**3. What do you want to study?** (e.g., Computer Science, Nursing, Business)\n**4. What's your budget preference?** (affordable, moderate, or flexible)\n\nFeel free to share any or all of these details, and I'll match you with schools that fit!`,
+        content: `Hey ${greeting}! What's going on — are you trying to figure out where to apply, still narrowing down your list, or is there something specific on your plate right now (like an essay, a class you're stuck in, or financial aid stuff)?\n\nI can help with all of it — school matching, admissions strategy, scholarships, and if you're already in college, I can help you work through assignments too. Just talk to me like you'd talk to a friend who knows this stuff.\n\nWhat's the situation?`,
         profileUpdates,
+        followUpQuestions: [
+          "What's your GPA and what are you hoping to study?",
+          "Are you applying to schools, already enrolled, or figuring out a transfer?",
+        ],
+      };
+
+    case "assignment-help":
+      return {
+        content: `On it — let's work through this together.\n\nTo make sure I actually help (not just give you something generic), tell me:\n\n- What's the assignment? Paste the prompt or describe what it's asking.\n- What class is this for?\n- Where are you in it — haven't started, have a rough draft, or just stuck on a specific part?\n\nOnce I see the prompt I can break it down, explain the concepts behind it, help you structure your approach, and review your draft before you submit. Free for all signed-in students.`,
+        profileUpdates,
+        followUpQuestions: [
+          "Paste your assignment prompt and I'll break it down right now.",
+          "What part is tripping you up — the topic, the structure, or the research?",
+        ],
       };
 
     case "gpa-discussion": {
@@ -564,8 +538,12 @@ export function processMessage(
 
     case "thanks": {
       return {
-        content: `You're welcome, ${greeting}! I'm here anytime you need help with your college search. Remember, finding the right school is a journey, and I'm with you every step of the way.\n\nFeel free to come back anytime to:\n- Get updated recommendations\n- Ask about specific schools\n- Get help with applications\n- Explore financial aid options\n\nGood luck on your educational journey!`,
+        content: `Of course, ${greeting}! Come back anytime — whether it's more school research, financial aid strategy, or you need help working through an assignment. I'm here.\n\nWhat else is on your mind?`,
         profileUpdates,
+        followUpQuestions: [
+          "Want me to dig deeper on any of those schools?",
+          "Anything coming up academically I can help you prep for?",
+        ],
       };
     }
 

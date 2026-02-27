@@ -10,6 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   GraduationCap,
   Send,
   User,
@@ -26,8 +34,13 @@ import {
   ExternalLink
 } from "lucide-react";
 import Link from "next/link";
-import { processMessage, type UserProfile } from "@/lib/aiEngine";
+import type { UserProfile } from "@/lib/aiEngine";
+import type { AIChatResponse, AIChatSource } from "@/lib/aiChatTypes";
 import type { CollegeEntry } from "@/lib/collegeDatabase";
+
+const FREE_DEMO_MESSAGES = 3;
+const DEMO_EMAIL_STORAGE_KEY = "eduguide-demo-email";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Message {
   id: string;
@@ -35,6 +48,7 @@ interface Message {
   sender: "user" | "ai";
   timestamp: Date;
   colleges?: CollegeEntry[];
+  sources?: AIChatSource[];
 }
 
 function createMessageId(prefix: string): string {
@@ -42,21 +56,51 @@ function createMessageId(prefix: string): string {
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function mergeUserProfile(currentProfile: UserProfile, updates?: Partial<UserProfile>): UserProfile {
+  if (!updates) return currentProfile;
+
+  const mergeUnique = (values: string[] | undefined) =>
+    values ? Array.from(new Set(values.filter(Boolean))) : undefined;
+
+  return {
+    ...currentProfile,
+    ...updates,
+    demographics: mergeUnique([...(currentProfile.demographics || []), ...(updates.demographics || [])]),
+    interests: mergeUnique([...(currentProfile.interests || []), ...(updates.interests || [])]),
+    preferredStates: mergeUnique([...(currentProfile.preferredStates || []), ...(updates.preferredStates || [])]),
+    schoolType: mergeUnique([...(currentProfile.schoolType || []), ...(updates.schoolType || [])]),
+  };
+}
+
 export default function DemoPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [emailPromptOpen, setEmailPromptOpen] = useState(false);
+  const [registrationEmail, setRegistrationEmail] = useState("");
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [hasUnlockedDemo, setHasUnlockedDemo] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const messageListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages([{
       id: "welcome",
-      content: `Welcome to the EduGuide AI Assistant Demo!\n\nI'm a smart college guidance advisor that can match you with the best schools based on your profile. Try me out!\n\n**Here's what I can do:**\n- Match colleges based on your GPA, location, and interests\n- Advise on financial aid and scholarships\n- Guide you through admission requirements\n- Compare community colleges and universities\n\n**Try saying:**\n- "My GPA is 3.0 and I'm in Texas"\n- "I want to study computer science in California"\n- "What affordable community colleges are available?"\n- "Tell me about universities"\n\nCreate an account for unlimited access and saved preferences!`,
+      content: `Welcome to the EduGuide AI Assistant Demo.\n\nI'm your research-backed college guide. I can learn what you want, pull in official school information, and help you tighten your shortlist without making you fill out a giant form first.\n\n**What I can do:**\n- Match colleges to your GPA, budget, location, and interests\n- Pull fresh details from official school sites when you want specifics\n- Compare admissions, fit, cost, and transfer pathways\n- After sign-up, help with assignments for free by breaking prompts down, explaining concepts, building outlines, and reviewing drafts\n\n**Try saying:**\n- "I'm into nursing, need affordable options, and want to stay in Texas"\n- "Compare UCLA and Santa Monica College for transfer potential"\n- "I want a school with strong computer science and real financial aid"\n- "Can you help me plan an essay and shortlist schools?"`,
       sender: "ai",
       timestamp: new Date(),
     }]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedEmail = window.localStorage.getItem(DEMO_EMAIL_STORAGE_KEY)?.trim().toLowerCase() ?? "";
+    if (!savedEmail || !EMAIL_REGEX.test(savedEmail)) return;
+
+    setRegistrationEmail(savedEmail);
+    setHasUnlockedDemo(true);
   }, []);
 
   useEffect(() => {
@@ -73,19 +117,46 @@ export default function DemoPage() {
     return () => window.clearTimeout(timer);
   }, [messages.length, isTyping]);
 
-  const sendMessage = async () => {
-    if (isTyping || !inputMessage.trim()) return;
+  const registerUrl = registrationEmail.trim()
+    ? `/register?email=${encodeURIComponent(registrationEmail.trim().toLowerCase())}`
+    : "/register";
 
-    if (messageCount >= 5) {
-      setMessages(prev => [...prev, {
-        id: createMessageId("ai-limit"),
-        content: "You've reached the demo limit of 5 messages. Create a free account to get unlimited AI guidance, save your profile, and access our full college database!",
-        sender: "ai",
-        timestamp: new Date(),
-      }]);
+  const handleRegistrationUnlock = () => {
+    const normalizedEmail = registrationEmail.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setRegistrationError("Enter a valid email address to continue.");
       return;
     }
 
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(DEMO_EMAIL_STORAGE_KEY, normalizedEmail);
+    }
+
+    setRegistrationEmail(normalizedEmail);
+    setRegistrationError(null);
+    setHasUnlockedDemo(true);
+    setEmailPromptOpen(false);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: createMessageId("ai-email-gate"),
+        content: "Your email is saved and the chat is unlocked. Keep going here, or create your full account to save your shortlist and unlock free assignment support.",
+        sender: "ai",
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
+  const sendMessage = async () => {
+    if (isTyping || !inputMessage.trim()) return;
+
+    if (messageCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo) {
+      setRegistrationError(null);
+      setEmailPromptOpen(true);
+      return;
+    }
+
+    const nextCount = messageCount + 1;
     const userMessage: Message = {
       id: createMessageId("user"),
       content: inputMessage,
@@ -97,36 +168,68 @@ export default function DemoPage() {
     const currentInput = inputMessage;
     setInputMessage("");
     setIsTyping(true);
-    setMessageCount(prev => prev + 1);
+    setMessageCount(nextCount);
 
-    window.setTimeout(() => {
-      try {
-        const aiResponse = processMessage(currentInput, userProfile);
+    try {
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentProfile: userProfile,
+          history: [
+            ...messages.slice(-7).map((message) => ({
+              role: message.sender === "user" ? "user" : "assistant",
+              content: message.content,
+            })),
+            {
+              role: "user" as const,
+              content: currentInput,
+            },
+          ],
+          message: currentInput,
+          mode: "demo",
+        }),
+      });
 
-        if (aiResponse.profileUpdates) {
-          setUserProfile(prev => ({ ...prev, ...aiResponse.profileUpdates }));
-        }
+      const payload = (await response.json().catch(() => ({}))) as AIChatResponse & { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Chat request failed");
+      }
 
-        const aiMessage: Message = {
+      if (payload.profileUpdates) {
+        setUserProfile((prev) => mergeUserProfile(prev, payload.profileUpdates));
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
           id: createMessageId("ai"),
-          content: aiResponse.content,
+          content: payload.content,
           sender: "ai",
           timestamp: new Date(),
-          colleges: aiResponse.colleges,
-        };
-
-        setMessages(prev => [...prev, aiMessage]);
-      } catch {
-        setMessages(prev => [...prev, {
+          colleges: payload.colleges,
+          sources: payload.sources,
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
           id: createMessageId("ai-error"),
           content: "I ran into an issue generating that response. Please try again.",
           sender: "ai",
           timestamp: new Date(),
-        }]);
-      } finally {
-        setIsTyping(false);
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+      if (nextCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo) {
+        setRegistrationError(null);
+        setEmailPromptOpen(true);
       }
-    }, 800 + Math.random() * 700);
+    }
   };
 
   return (
@@ -153,7 +256,7 @@ export default function DemoPage() {
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Info className="h-4 w-4" />
           <AlertDescription>
-            <strong>Demo Mode:</strong> You can send up to 5 messages. The AI will analyze your GPA, location, and interests to recommend schools.
+            <strong>Demo Mode:</strong> You can send up to 3 free messages. After that, add your email to unlock the rest of the demo, keep your shortlist moving, and access free assignment support after sign-up.
             <Link href="/register" className="text-blue-600 hover:underline ml-1">
               Create an account
             </Link> for unlimited access!
@@ -165,18 +268,18 @@ export default function DemoPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Bot className="h-6 w-6 text-blue-600" />
-                <CardTitle>AI College Guidance - Demo</CardTitle>
+                <CardTitle>Research-Backed College AI</CardTitle>
                 <Badge variant="secondary">
                   <Sparkles className="h-3 w-3 mr-1" />
-                  Smart Matching
+                  Inquisitive Mode
                 </Badge>
               </div>
               <div className="shrink-0 text-sm text-gray-500">
-                Messages: {messageCount}/5
+                Free demo: {Math.min(messageCount, FREE_DEMO_MESSAGES)}/{FREE_DEMO_MESSAGES}
               </div>
             </div>
             <CardDescription>
-              Try our AI: share your GPA, location, and goals for personalized college matches!
+              Tell it what you want, what you can afford, and what kind of school vibe you need. It will ask smart follow-ups and tighten the list fast.
             </CardDescription>
           </CardHeader>
 
@@ -207,6 +310,27 @@ export default function DemoPage() {
                           : "bg-gray-100 text-gray-900"
                       }`}>
                         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+
+                        {message.sources && message.sources.length > 0 && (
+                          <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fresh official site notes</p>
+                            <div className="mt-2 space-y-2">
+                              {message.sources.map((source) => (
+                                <div key={`${source.url}-${source.title}`} className="text-xs text-gray-600">
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-blue-600 hover:text-blue-800"
+                                  >
+                                    {source.title}
+                                  </a>
+                                  <p className="mt-1 leading-relaxed">{source.note}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {message.colleges && message.colleges.length > 0 && (
                           <div className="mt-4 space-y-3">
@@ -290,7 +414,7 @@ export default function DemoPage() {
                       <div className="bg-gray-100 rounded-lg px-4 py-3">
                         <div className="flex space-x-1 items-center">
                           <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
-                          <span className="text-xs text-gray-500 mr-2">Analyzing...</span>
+                          <span className="text-xs text-gray-500 mr-2">Researching your fit...</span>
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-100" />
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
@@ -309,22 +433,34 @@ export default function DemoPage() {
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder={messageCount >= 5 ? "Demo limit reached - create an account!" : 'Try: "My GPA is 3.5 and I want to study nursing"'}
+                placeholder={messageCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo ? "Add your email to continue the demo" : 'Try: "I want an affordable nursing program with strong support and easy transfer options"'}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                disabled={isTyping || messageCount >= 5}
+                disabled={isTyping || (messageCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo)}
               />
-              <Button className="shrink-0" onClick={sendMessage} disabled={isTyping || !inputMessage.trim() || messageCount >= 5}>
+              <Button className="shrink-0" onClick={sendMessage} disabled={isTyping || !inputMessage.trim() || (messageCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo)}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
 
-            {messageCount >= 3 && messageCount < 5 && (
+            {messageCount >= FREE_DEMO_MESSAGES && !hasUnlockedDemo && (
               <div className="mt-2 text-center">
                 <p className="text-sm text-orange-600">
-                  Only {5 - messageCount} messages left in demo.{" "}
-                  <Link href="/register" className="text-blue-600 hover:underline">
-                    Create account for unlimited access!
+                  Add your email to keep going with the demo and unlock free assignment support after sign-up, or{" "}
+                  <Link href={registerUrl} className="text-blue-600 hover:underline">
+                    create your full account
                   </Link>
+                  .
+                </p>
+              </div>
+            )}
+            {hasUnlockedDemo && (
+              <div className="mt-2 text-center">
+                <p className="text-sm text-emerald-700">
+                  Demo unlocked for <span className="font-medium">{registrationEmail}</span>.{" "}
+                  <Link href={registerUrl} className="text-blue-600 hover:underline">
+                    Finish account setup for saved chats and free assignment support
+                  </Link>
+                  .
                 </p>
               </div>
             )}
@@ -339,7 +475,7 @@ export default function DemoPage() {
         >
           <h2 className="text-2xl font-bold mb-4">Ready for the Full Experience?</h2>
           <p className="text-lg mb-6 opacity-90">
-            Create your account for unlimited AI assistance, saved preferences, and access to our complete college database with 40+ institutions.
+            Create your account for unlimited AI help, saved preferences, faster school research, and free assignment support that helps you plan, understand, and polish your work.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
@@ -355,6 +491,45 @@ export default function DemoPage() {
           </div>
         </motion.div>
       </div>
+
+      <Dialog open={emailPromptOpen} onOpenChange={setEmailPromptOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Keep Chatting</DialogTitle>
+            <DialogDescription>
+              You&apos;ve used your 3 free demo messages. Add your email to unlock the rest of the demo now, then create your account when you want saved chats and free assignment support.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <label htmlFor="demo-registration-email" className="text-sm font-medium text-gray-900">
+              Email address
+            </label>
+            <Input
+              id="demo-registration-email"
+              type="email"
+              value={registrationEmail}
+              onChange={(event) => setRegistrationEmail(event.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+            {registrationError && (
+              <p className="text-sm text-red-600">{registrationError}</p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Link href={registerUrl} className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full">
+                Create Full Account
+              </Button>
+            </Link>
+            <Button onClick={handleRegistrationUnlock} className="w-full sm:w-auto">
+              Save Email & Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { GraduationCap, ArrowLeft, CheckCircle, Eye, EyeOff, Shield, AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -83,6 +83,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signUp } = useAuth();
 
   const form = useForm<RegisterForm>({
@@ -109,6 +110,12 @@ export default function RegisterPage() {
     [watchedPassword]
   );
   const passwordStrengthWidthClass = ["w-0", "w-1/5", "w-2/5", "w-3/5", "w-4/5", "w-full"][passwordStrength.score];
+
+  useEffect(() => {
+    const emailFromQuery = searchParams.get("email")?.trim().toLowerCase();
+    if (!emailFromQuery || form.getValues("email")) return;
+    form.setValue("email", emailFromQuery, { shouldValidate: true });
+  }, [form, searchParams]);
 
   const nextStep = async () => {
     let isValid = false;

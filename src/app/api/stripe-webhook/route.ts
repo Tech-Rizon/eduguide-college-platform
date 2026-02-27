@@ -115,6 +115,50 @@ async function issueReferralReward(
   }
 }
 
+async function upsertCheckoutRecoverySession(
+  sb: SbClient,
+  params: {
+    sessionId: string
+    sessionUrl?: string | null
+    customerEmail?: string | null
+    plan?: string | null
+    priceId?: string | null
+    referralCode?: string | null
+    status: 'open' | 'completed' | 'expired'
+    completedAt?: string | null
+    expiredAt?: string | null
+  },
+) {
+  const normalizedEmail =
+    typeof params.customerEmail === 'string' ? params.customerEmail.trim().toLowerCase() : null
+
+  let userId: string | null = null
+  if (normalizedEmail) {
+    const { data: profile } = await sb
+      .from('user_profiles')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
+    userId = profile?.id ?? null
+  }
+
+  await sb.from('checkout_recovery_sessions').upsert(
+    {
+      stripe_checkout_session_id: params.sessionId,
+      stripe_checkout_url: params.sessionUrl ?? null,
+      customer_email: normalizedEmail,
+      user_id: userId,
+      plan: params.plan ?? null,
+      price_id: params.priceId ?? null,
+      referral_code: params.referralCode ?? null,
+      status: params.status,
+      completed_at: params.completedAt ?? null,
+      expired_at: params.expiredAt ?? null,
+    },
+    { onConflict: 'stripe_checkout_session_id' },
+  )
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   const stripeSecret = process.env.STRIPE_SECRET_KEY
@@ -159,6 +203,22 @@ export async function POST(request: Request) {
       const referrerUserId = fullSession.metadata?.referrerUserId ?? ''
 
       if (sb) {
+        try {
+          await upsertCheckoutRecoverySession(sb, {
+            sessionId: fullSession.id,
+            sessionUrl: fullSession.url,
+            customerEmail,
+            plan,
+            priceId,
+            referralCode,
+            status: 'completed',
+            completedAt: new Date().toISOString(),
+            expiredAt: null,
+          })
+        } catch (trackingErr) {
+          console.error('Checkout recovery completion upsert error:', trackingErr)
+        }
+
         // Record payment
         try {
           await sb.from('payments').insert([
@@ -217,6 +277,30 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------------------------
+    // checkout.session.expired
+    // -------------------------------------------------------------------------
+    if (event.type === 'checkout.session.expired') {
+      const session = event.data.object as Stripe.Checkout.Session
+      if (sb) {
+        try {
+          await upsertCheckoutRecoverySession(sb, {
+            sessionId: session.id,
+            sessionUrl: session.url,
+            customerEmail: session.customer_details?.email ?? null,
+            plan: session.metadata?.plan ?? null,
+            priceId: null,
+            referralCode: session.metadata?.referralCode ?? null,
+            status: 'expired',
+            completedAt: null,
+            expiredAt: new Date().toISOString(),
+          })
+        } catch (trackingErr) {
+          console.error('Checkout recovery expiry upsert error:', trackingErr)
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // customer.subscription.updated
     // -------------------------------------------------------------------------
     if (event.type === 'customer.subscription.updated') {
@@ -252,6 +336,52 @@ export async function POST(request: Request) {
             .eq('stripe_subscription_id', sub.id)
         } catch (err) {
           console.error('subscriptions canceled update error:', err)
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // invoice.paid — record each recurring subscription renewal
+    // -------------------------------------------------------------------------
+    if (event.type === 'invoice.paid') {
+      const invoice = event.data.object as Stripe.Invoice
+      const invoiceRaw = invoice as unknown as Record<string, unknown>
+      const rawParent = invoiceRaw['parent'] as Record<string, unknown> | undefined
+      const rawSubDetails = rawParent?.['subscription_details'] as Record<string, unknown> | undefined
+      const subId: string | null =
+        typeof rawSubDetails?.['subscription'] === 'string'
+          ? rawSubDetails['subscription']
+          : typeof invoiceRaw['subscription'] === 'string'
+          ? (invoiceRaw['subscription'] as string)
+          : null
+
+      // Only record renewals (not the first invoice, which checkout.session.completed already covers)
+      const billingReason = (invoiceRaw['billing_reason'] as string | undefined) ?? ''
+      const isRenewal = billingReason === 'subscription_cycle' || billingReason === 'subscription_update'
+
+      if (isRenewal && sb) {
+        try {
+          const customerEmail =
+            typeof invoiceRaw['customer_email'] === 'string' ? invoiceRaw['customer_email'] : null
+          const amountPaid =
+            typeof invoiceRaw['amount_paid'] === 'number' ? invoiceRaw['amount_paid'] : null
+          const currency =
+            typeof invoiceRaw['currency'] === 'string' ? invoiceRaw['currency'] : null
+
+          await sb.from('payments').insert([
+            {
+              session_id: invoice.id, // invoice ID as idempotency key
+              customer_email: customerEmail,
+              amount: amountPaid,
+              currency,
+              payment_status: 'paid',
+              price_id: null,
+              plan: subId ?? null,
+              metadata: { stripe_subscription_id: subId, billing_reason: billingReason },
+            },
+          ])
+        } catch (err) {
+          console.error('invoice.paid renewal insert error:', err)
         }
       }
     }

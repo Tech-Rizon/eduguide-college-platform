@@ -110,8 +110,11 @@ export default function SuccessPage() {
                       Confirmation sent to <span className="font-medium">{session.customer_email}</span>
                     </p>
                   )}
-                  <p className="text-gray-600 mb-8">
-                    Your <span className="font-semibold text-blue-600">{session?.plan ?? 'support'}</span> plan is now active. A tutor will reach out with next steps shortly.
+                  <p className="text-gray-600 mb-2">
+                    Your <span className="font-semibold text-blue-600">{session?.plan ?? 'support'}</span> monthly subscription is now active.
+                  </p>
+                  <p className="text-gray-500 text-sm mb-8">
+                    Your card will be billed automatically each month. Cancel anytime from your dashboard.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button asChild size="lg">

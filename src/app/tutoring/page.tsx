@@ -122,24 +122,33 @@ const features = [
 ];
 
 const subjects = [
-  { name: "Mathematics", icon: <Calculator className="h-5 w-5" />, popular: true },
-  { name: "Science", icon: <Microscope className="h-5 w-5" />, popular: true },
-  { name: "English & Literature", icon: <PenTool className="h-5 w-5" />, popular: true },
-  { name: "History & Social Studies", icon: <BookOpen className="h-5 w-5" />, popular: false },
-  { name: "Computer Science", icon: <Presentation className="h-5 w-5" />, popular: true },
-  { name: "Foreign Languages", icon: <MessageCircle className="h-5 w-5" />, popular: false },
-  { name: "Business & Economics", icon: <Briefcase className="h-5 w-5" />, popular: false },
-  { name: "Test Prep (SAT/ACT)", icon: <FileText className="h-5 w-5" />, popular: true }
+  { name: "Calculus & Statistics", icon: <Calculator className="h-5 w-5" />, popular: true },
+  { name: "Chemistry & Lab Sciences", icon: <Microscope className="h-5 w-5" />, popular: true },
+  { name: "Essay Writing & Research", icon: <PenTool className="h-5 w-5" />, popular: true },
+  { name: "Biology & Life Sciences", icon: <BookOpen className="h-5 w-5" />, popular: true },
+  { name: "Programming & CS", icon: <Presentation className="h-5 w-5" />, popular: true },
+  { name: "Psychology & Sociology", icon: <MessageCircle className="h-5 w-5" />, popular: false },
+  { name: "Economics & Finance", icon: <Briefcase className="h-5 w-5" />, popular: true },
+  { name: "Physics & Engineering", icon: <FileText className="h-5 w-5" />, popular: false }
 ];
 
 export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [checkoutEmail, setCheckoutEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [referralTouched, setReferralTouched] = useState(false);
   const searchParams = useSearchParams();
   const { session } = useAuth();
   const normalizedReferralCode = referralCode.trim().toLowerCase();
   const isReferralApplied = normalizedReferralCode.length > 0;
+  const normalizedCheckoutEmail = checkoutEmail.trim().toLowerCase();
+  const resolvedCheckoutEmail = session?.user?.email?.trim().toLowerCase() ?? normalizedCheckoutEmail;
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      setCheckoutEmail(session.user.email);
+    }
+  }, [session?.user?.email]);
 
   // Pre-populate referral code from URL ?ref= param and track click
   useEffect(() => {
@@ -167,20 +176,21 @@ export default function TutoringPage() {
       return;
     }
 
+    if (!resolvedCheckoutEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedCheckoutEmail)) {
+      toast.error('Enter a valid email to continue checkout.');
+      return;
+    }
+
     try {
       setLoadingPlan(planName ?? null);
       const payload: { plan?: string; priceId: string; referralCode?: string; userEmail?: string } = {
         plan: planName,
         priceId,
+        userEmail: resolvedCheckoutEmail,
       };
 
       if (isReferralApplied) {
         payload.referralCode = normalizedReferralCode;
-      }
-
-      // Pass authenticated email so Stripe can match existing customers
-      if (session?.user?.email) {
-        payload.userEmail = session.user.email;
       }
 
       const res = await fetch('/api/checkout', {
@@ -345,9 +355,12 @@ export default function TutoringPage() {
           transition={{ delay: 0.7, duration: 0.6 }}
           className="mb-16"
         >
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Subjects We Cover
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
+            College Subjects We Cover
           </h2>
+          <p className="text-center text-gray-500 mb-12 max-w-2xl mx-auto">
+            From weed-out courses to upper-division electives — we&apos;ve got tutors who have aced these classes and can help you do the same.
+          </p>
           <div className="grid md:grid-cols-4 gap-4">
             {subjects.map((subject) => (
               <Card key={subject.name} className="hover:shadow-md transition-shadow duration-300">
@@ -378,35 +391,38 @@ export default function TutoringPage() {
           transition={{ delay: 0.9, duration: 0.6 }}
           className="mb-16"
         >
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
             How Our Tutoring Works
           </h2>
+          <p className="text-center text-gray-500 mb-12 max-w-2xl mx-auto">
+            Whether you&apos;re cramming for finals, lost in a 300-level course, or just trying to raise your GPA — here&apos;s how we help.
+          </p>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-blue-600">1</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Assessment & Matching</h3>
+              <h3 className="text-xl font-semibold mb-2">Tell Us Where You&apos;re Stuck</h3>
               <p className="text-gray-600">
-                We assess your needs and match you with the perfect tutor based on your subject, learning style, and goals.
+                Midterms sneaking up? Behind on a class? Just tell us what&apos;s going on — no judgment. We&apos;ll pinpoint exactly where you need support and build a plan around your schedule.
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-green-600">2</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Personalized Sessions</h3>
+              <h3 className="text-xl font-semibold mb-2">Work With Your Tutor</h3>
               <p className="text-gray-600">
-                Engage in one-on-one sessions tailored to your pace, with flexible scheduling and multiple format options.
+                Get matched with a tutor who knows your course, your campus pressure, and your pace. Real 1-on-1 sessions — live video, chat, or async — that fit around classes, work, and life.
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-purple-600">3</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Track Progress</h3>
+              <h3 className="text-xl font-semibold mb-2">See Your GPA Climb</h3>
               <p className="text-gray-600">
-                Monitor your improvement with detailed analytics, regular assessments, and goal achievement tracking.
+                Track your progress week by week. Most students notice real grade improvements within their first month — less all-night cramming, more actual confidence walking into exams.
               </p>
             </div>
           </div>
@@ -420,12 +436,34 @@ export default function TutoringPage() {
           className="mb-16"
           id="support-plans"
         >
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Choose Your Support Level
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-3">
+            Monthly Support Plans
           </h2>
+          <p className="text-center text-gray-500 mb-12">
+            All plans renew automatically each month. Cancel anytime from your dashboard.
+          </p>
           <Card className="mb-8 border-dashed border-blue-300 bg-blue-50/60">
             <CardContent className="pt-6">
-              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="checkout-email" className="text-sm font-medium text-gray-900">
+                    Checkout email
+                  </label>
+                  <Input
+                    id="checkout-email"
+                    type="email"
+                    value={checkoutEmail}
+                    onChange={(event) => setCheckoutEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    className="bg-white"
+                    disabled={Boolean(session?.user?.email)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {session?.user?.email
+                      ? 'Using your signed-in email for Stripe receipts and recovery reminders.'
+                      : 'We use this to send your Stripe receipt and remind you if checkout is left unfinished.'}
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <label htmlFor="referral-code" className="text-sm font-medium text-gray-900">
                     Have a referral code?
@@ -439,7 +477,7 @@ export default function TutoringPage() {
                     className="bg-white"
                   />
                 </div>
-                <div className="text-sm text-gray-700 md:text-right">
+                <div className="text-sm text-gray-700 md:col-span-2 md:text-right">
                   {isReferralApplied ? (
                     <p className="font-semibold text-green-700">Referral ready: 30% off your first month will be applied at checkout.</p>
                   ) : (
@@ -461,6 +499,7 @@ export default function TutoringPage() {
                 <div className="mt-4">
                   {isReferralApplied && <p className="text-sm text-gray-500 line-through">{basicPrice.original}</p>}
                   <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? basicPrice.discounted : basicPrice.original}</p>
+                  <p className="text-xs text-gray-400 mt-1">billed monthly · cancel anytime</p>
                 </div>
               </CardHeader>
               <CardContent>
@@ -487,7 +526,7 @@ export default function TutoringPage() {
                   onClick={() => handleCheckout(BASIC_PRICE || undefined, 'Basic Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
                 >
-                  {loadingPlan === 'Basic Support' ? 'Processing…' : 'Choose Basic'}
+                  {loadingPlan === 'Basic Support' ? 'Processing…' : 'Subscribe — Basic'}
                 </Button>
               </CardContent>
             </Card>
@@ -503,6 +542,7 @@ export default function TutoringPage() {
                 <div className="mt-4">
                   {isReferralApplied && <p className="text-sm text-gray-500 line-through">{premiumPrice.original}</p>}
                   <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? premiumPrice.discounted : premiumPrice.original}</p>
+                  <p className="text-xs text-gray-400 mt-1">billed monthly · cancel anytime</p>
                 </div>
               </CardHeader>
               <CardContent>
@@ -533,7 +573,7 @@ export default function TutoringPage() {
                   onClick={() => handleCheckout(PREMIUM_PRICE || undefined, 'Premium Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
                 >
-                  {loadingPlan === 'Premium Support' ? 'Processing…' : 'Choose Premium'}
+                  {loadingPlan === 'Premium Support' ? 'Processing…' : 'Subscribe — Premium'}
                 </Button>
               </CardContent>
             </Card>
@@ -546,6 +586,7 @@ export default function TutoringPage() {
                 <div className="mt-4">
                   {isReferralApplied && <p className="text-sm text-gray-500 line-through">{elitePrice.original}</p>}
                   <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? elitePrice.discounted : elitePrice.original}</p>
+                  <p className="text-xs text-gray-400 mt-1">billed monthly · cancel anytime</p>
                 </div>
               </CardHeader>
               <CardContent>
@@ -576,11 +617,16 @@ export default function TutoringPage() {
                   onClick={() => handleCheckout(ELITE_PRICE || undefined, 'Elite Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
                 >
-                  {loadingPlan === 'Elite Support' ? 'Processing…' : 'Choose Elite'}
+                  {loadingPlan === 'Elite Support' ? 'Processing…' : 'Subscribe — Elite'}
                 </Button>
               </CardContent>
             </Card>
           </div>
+
+          {/* Billing footnote */}
+          <p className="text-center text-sm text-gray-400 mt-6">
+            Subscriptions renew automatically on your billing date. You can cancel or switch plans at any time from your dashboard. Prices shown in USD.
+          </p>
         </motion.div>
 
         {/* CTA Section */}
