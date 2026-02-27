@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/internal/stripe/checkout-recovery",
-      "schedule": "0 * * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
