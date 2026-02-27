@@ -196,16 +196,16 @@ function TutoringSupportPage() {
           >
             <h2 className="text-2xl font-bold text-gray-900 mb-6">What We Offer</h2>
             <div className="space-y-6">
-              {services.map((service, index) => (
-                <Card key={index} className="hover:shadow-md transition-shadow">
+              {services.map((service) => (
+                <Card key={service.title} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <CardTitle className="text-lg">{service.title}</CardTitle>
                     <CardDescription>{service.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {service.features.map((feature, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                      {service.features.map((feature) => (
+                        <Badge key={feature} variant="secondary" className="text-xs">
                           {feature}
                         </Badge>
                       ))}

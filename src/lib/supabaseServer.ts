@@ -41,6 +41,7 @@ function createQueryStub() {
 
   const proxy = new Proxy(
     {
+      // biome-ignore lint/suspicious/noThenProperty: intentional thenable for Promise-like chaining
       then: (resolve: (value: { data: unknown; error: Error }) => void) => resolve(buildResult()),
       single: async () => {
         expectManyRows = false

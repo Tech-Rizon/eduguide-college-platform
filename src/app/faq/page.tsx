@@ -71,8 +71,8 @@ export default function FAQPage() {
           transition={{ delay: 0.2, duration: 0.6 }}
           className="space-y-6"
         >
-        {faqs.map((faq, idx) => (
-          <Card key={idx} className="hover:shadow-md transition-shadow">
+        {faqs.map((faq) => (
+          <Card key={faq.question} className="hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle className="text-lg font-semibold">{faq.question}</CardTitle>
             </CardHeader>

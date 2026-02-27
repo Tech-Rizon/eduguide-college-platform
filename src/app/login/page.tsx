@@ -146,7 +146,7 @@ function LoginPageContent() {
 
       // Client-side rate limiting after 5 failed attempts
       if (newAttempts >= 5) {
-        const lockoutDuration = Math.min(30000 * Math.pow(2, newAttempts - 5), 300000); // 30s, 60s, 120s... max 5min
+        const lockoutDuration = Math.min(30000 * 2 ** (newAttempts - 5), 300000); // 30s, 60s, 120s... max 5min
         setLockoutUntil(Date.now() + lockoutDuration);
         toast.error(`Too many failed attempts. Please wait ${lockoutDuration / 1000} seconds.`);
       } else {

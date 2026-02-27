@@ -214,6 +214,7 @@ export default function DashboardPage() {
     }]);
   }, [authUser, loading, router]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages.length and isTyping are intentional trigger deps
   useEffect(() => {
     const viewport = messageListRef.current;
     if (!viewport) return;
@@ -228,6 +229,7 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timer);
   }, [messages.length, isTyping]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: user?.id is the reset trigger; refs and setters are stable
   useEffect(() => {
     hasAutoPromptedProfileRef.current = false;
     hasHydratedLocalProfileRef.current = false;
@@ -408,14 +410,13 @@ export default function DashboardPage() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: openProfileCompletionDialog only calls stable state setters
   useEffect(() => {
     if (!user || !hasLoadedProfileRecord || isLoadingProfileRecord || hasAutoPromptedProfileRef.current) return;
     if (!profileRecord?.username) {
       hasAutoPromptedProfileRef.current = true;
       openProfileCompletionDialog();
     }
-    // openProfileCompletionDialog is stable: it only calls state setters
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hasLoadedProfileRecord, isLoadingProfileRecord, profileRecord?.username]);
 
   const sendMessage = async () => {

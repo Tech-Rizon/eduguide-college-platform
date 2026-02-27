@@ -103,6 +103,7 @@ export default function DemoPage() {
     setHasUnlockedDemo(true);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages.length and isTyping are intentional scroll triggers
   useEffect(() => {
     const viewport = messageListRef.current;
     if (!viewport) return;

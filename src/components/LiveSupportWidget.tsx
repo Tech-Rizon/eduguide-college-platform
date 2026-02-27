@@ -204,6 +204,7 @@ export default function LiveSupportWidget() {
     setMessages([createMessage(PLAYBOOK_WELCOME, "agent")]);
   }, [isOpen]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages.length is an intentional scroll trigger
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
