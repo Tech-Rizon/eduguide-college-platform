@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   GraduationCap,
   ArrowLeft,
@@ -131,6 +132,10 @@ const subjects = [
 
 export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralTouched, setReferralTouched] = useState(false);
+  const normalizedReferralCode = referralCode.trim().toUpperCase();
+  const isReferralApplied = normalizedReferralCode.length > 0;
   // Read published Stripe Price IDs from environment (set these on Vercel)
   const BASIC_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC ?? ''
   const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
@@ -145,7 +150,14 @@ export default function TutoringPage() {
 
     try {
       setLoadingPlan(planName ?? null);
-      const payload: { plan?: string; priceId: string } = { plan: planName, priceId };
+      const payload: { plan?: string; priceId: string; referralCode?: string } = {
+        plan: planName,
+        priceId,
+      };
+
+      if (isReferralApplied) {
+        payload.referralCode = normalizedReferralCode;
+      }
 
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -172,6 +184,20 @@ export default function TutoringPage() {
       setLoadingPlan(null);
     }
   };
+
+  const formatPrice = (hourlyRate: number) => {
+    const discountedRate = hourlyRate * 0.7;
+
+    return {
+      original: `$${hourlyRate}/hr`,
+      discounted: `$${discountedRate.toFixed(2)}/hr`,
+    };
+  };
+
+  const basicPrice = formatPrice(25);
+  const premiumPrice = formatPrice(45);
+  const elitePrice = formatPrice(75);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
@@ -374,13 +400,45 @@ export default function TutoringPage() {
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
             Choose Your Support Level
           </h2>
+          <Card className="mb-8 border-dashed border-blue-300 bg-blue-50/60">
+            <CardContent className="pt-6">
+              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                <div className="space-y-2">
+                  <label htmlFor="referral-code" className="text-sm font-medium text-gray-900">
+                    Have a referral code?
+                  </label>
+                  <Input
+                    id="referral-code"
+                    value={referralCode}
+                    onChange={(event) => setReferralCode(event.target.value)}
+                    onBlur={() => setReferralTouched(true)}
+                    placeholder="Enter referral code"
+                    className="bg-white"
+                  />
+                </div>
+                <div className="text-sm text-gray-700 md:text-right">
+                  {isReferralApplied ? (
+                    <p className="font-semibold text-green-700">Referral ready: 30% discount will be applied at checkout.</p>
+                  ) : (
+                    <p>Enter a valid code to unlock 30% off all plans.</p>
+                  )}
+                  {referralTouched && !isReferralApplied && (
+                    <p className="text-xs text-gray-500 mt-1">Tip: your code is validated securely during checkout.</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid md:grid-cols-3 gap-8">
             {/* Basic Plan */}
             <Card className="hover:shadow-lg transition-shadow duration-300">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">Basic Support</CardTitle>
                 <CardDescription>Perfect for occasional help</CardDescription>
-                <div className="text-3xl font-bold text-blue-600 mt-4">$25/hr</div>
+                <div className="mt-4">
+                  {isReferralApplied && <p className="text-sm text-gray-500 line-through">{basicPrice.original}</p>}
+                  <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? basicPrice.discounted : basicPrice.original}</p>
+                </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
@@ -419,7 +477,10 @@ export default function TutoringPage() {
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">Premium Support</CardTitle>
                 <CardDescription>Comprehensive academic assistance</CardDescription>
-                <div className="text-3xl font-bold text-blue-600 mt-4">$45/hr</div>
+                <div className="mt-4">
+                  {isReferralApplied && <p className="text-sm text-gray-500 line-through">{premiumPrice.original}</p>}
+                  <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? premiumPrice.discounted : premiumPrice.original}</p>
+                </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
@@ -459,7 +520,10 @@ export default function TutoringPage() {
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">Elite Support</CardTitle>
                 <CardDescription>Complete academic partnership</CardDescription>
-                <div className="text-3xl font-bold text-blue-600 mt-4">$75/hr</div>
+                <div className="mt-4">
+                  {isReferralApplied && <p className="text-sm text-gray-500 line-through">{elitePrice.original}</p>}
+                  <p className="text-3xl font-bold text-blue-600">{isReferralApplied ? elitePrice.discounted : elitePrice.original}</p>
+                </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
