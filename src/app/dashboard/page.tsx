@@ -39,6 +39,7 @@ import {
   ExternalLink,
   CreditCard,
   Gift,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -189,6 +190,7 @@ export default function DashboardPage() {
   const hasHydratedLocalProfileRef = useRef(false);
   const [hasLoadedProfileRecord, setHasLoadedProfileRecord] = useState(false);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [savedCollegeIds, setSavedCollegeIds] = useState<Set<string>>(new Set());
 
   const { user: authUser, session, loading, signOut } = useAuth();
 
@@ -319,6 +321,21 @@ export default function DashboardPage() {
     };
   }, [user?.id]);
 
+  // Load saved college IDs for "Add to Plan" button state
+  useEffect(() => {
+    if (!session?.access_token || !user?.id) return;
+    fetch("/api/my-plan", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { shortlist: Array<{ college_id: string }> } | null) => {
+        if (data?.shortlist) {
+          setSavedCollegeIds(new Set(data.shortlist.map((s) => s.college_id)));
+        }
+      })
+      .catch(() => {}); // Non-fatal
+  }, [session?.access_token, user?.id]);
+
   const openProfileCompletionDialog = () => {
     setProfileDialogError(null);
     setProfileForm({
@@ -438,6 +455,28 @@ export default function DashboardPage() {
       toast.error(err instanceof Error ? err.message : "Could not open billing portal");
     } finally {
       setIsPortalLoading(false);
+    }
+  };
+
+  const handleAddToMyPlan = async (college: CollegeEntry) => {
+    if (!session?.access_token || savedCollegeIds.has(college.id)) return;
+    try {
+      const res = await fetch("/api/my-plan/colleges", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ collegeId: college.id, collegeName: college.name }),
+      });
+      if (res.ok || res.status === 409) {
+        setSavedCollegeIds((prev) => new Set([...prev, college.id]));
+        toast.success(`${college.name} added to your plan`);
+      } else {
+        toast.error("Could not add to plan");
+      }
+    } catch {
+      toast.error("Could not add to plan");
     }
   };
 
@@ -808,6 +847,25 @@ export default function DashboardPage() {
                   </Link>
                 </CardContent>
               </Card>
+
+              {/* My College Plan */}
+              <Card className="border-blue-100 bg-blue-50/30">
+                <CardContent className="pt-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-gray-900">My College Plan</span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {savedCollegeIds.size} college{savedCollegeIds.size !== 1 ? "s" : ""} saved
+                  </p>
+                  <Link href="/dashboard/my-plan">
+                    <Button className="w-full" size="sm">
+                      View My Plan
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -952,6 +1010,15 @@ export default function DashboardPage() {
                                         </div>
                                       </div>
                                       <p className="mt-2 text-xs text-gray-500">{college.description}</p>
+                                      <Button
+                                        size="sm"
+                                        variant={savedCollegeIds.has(college.id) ? "secondary" : "outline"}
+                                        className="mt-3 text-xs"
+                                        onClick={() => handleAddToMyPlan(college)}
+                                        disabled={savedCollegeIds.has(college.id)}
+                                      >
+                                        {savedCollegeIds.has(college.id) ? "✓ In My Plan" : "+ Add to My Plan"}
+                                      </Button>
                                     </CardContent>
                                   </Card>
                                 ))}

@@ -21,7 +21,12 @@
       "Bash(bunx biome lint src/ --max-diagnostics=200)",
       "Bash(bunx biome lint src/app/dashboard/page.tsx --max-diagnostics=50)",
       "Bash(bunx biome lint src/ --reporter=json)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f[''path''][''file''],'':'',e[''location''][''span''][''start''][''line''],''->'',e[''category'']\\) for f in d[''diagnostics''] if f[''severity'']==''error'' for e in [f]]\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f[''path''][''file''],'':'',e[''location''][''span''][''start''][''line''],''->'',e[''category'']\\) for f in d[''diagnostics''] if f[''severity'']==''error'' for e in [f]]\")",
+      "Bash(npm install react-markdown)",
+      "Bash(node -e \"console.log\\(require\\(''/c/Users/Window/Documents/GitHub/eduguide-college-platform/node_modules/react-markdown/package.json''\\).version\\)\")",
+      "Bash(git add package.json package-lock.json src/app/dashboard/page.tsx)",
+      "Bash(git push origin main)",
+      "Bash(npx tsc --noEmit)"
     ]
   }
 }

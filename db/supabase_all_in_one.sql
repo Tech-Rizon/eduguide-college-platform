@@ -16,6 +16,7 @@
 -- 9) 20260227_referral_and_subscriptions.sql
 -- 10) 20260227_checkout_recovery_tracking.sql
 -- 11) 20260228_referral_antabuse_and_attributions.sql
+-- 12) 20260301_college_plans.sql
 --
 -- WARNING:
 -- - Optional DROP TABLE statements are commented out by default.
@@ -1574,6 +1575,76 @@ BEGIN
   WHERE code = ref_code;
 END;
 $$;
+
+-- =============================================================================
+-- 12) College Plans (My College Plan + Application Tracker)
+-- Consolidated section: college_shortlist and college_checklist_items
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.college_shortlist (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  college_id   TEXT        NOT NULL,
+  college_name TEXT        NOT NULL,
+  status       TEXT        NOT NULL DEFAULT 'planning',
+  deadline     DATE,
+  notes        TEXT,
+  added_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, college_id)
+);
+
+CREATE INDEX IF NOT EXISTS college_shortlist_user_id_idx
+  ON public.college_shortlist (user_id);
+
+ALTER TABLE public.college_shortlist ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own shortlist" ON public.college_shortlist;
+CREATE POLICY "Users can manage own shortlist"
+  ON public.college_shortlist FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role full access to college_shortlist" ON public.college_shortlist;
+CREATE POLICY "Service role full access to college_shortlist"
+  ON public.college_shortlist FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP TRIGGER IF EXISTS college_shortlist_set_updated_at ON public.college_shortlist;
+CREATE TRIGGER college_shortlist_set_updated_at
+  BEFORE UPDATE ON public.college_shortlist
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trigger_set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.college_checklist_items (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  college_id TEXT        NOT NULL,
+  task       TEXT        NOT NULL,
+  completed  BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, college_id, task)
+);
+
+CREATE INDEX IF NOT EXISTS college_checklist_items_user_id_idx
+  ON public.college_checklist_items (user_id);
+CREATE INDEX IF NOT EXISTS college_checklist_items_college_idx
+  ON public.college_checklist_items (user_id, college_id);
+
+ALTER TABLE public.college_checklist_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own checklist items" ON public.college_checklist_items;
+CREATE POLICY "Users can manage own checklist items"
+  ON public.college_checklist_items FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role full access to college_checklist_items" ON public.college_checklist_items;
+CREATE POLICY "Service role full access to college_checklist_items"
+  ON public.college_checklist_items FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
 
 -- =============================================================================
 -- End of all-in-one Supabase database script.
