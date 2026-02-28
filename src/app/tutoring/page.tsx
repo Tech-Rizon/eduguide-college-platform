@@ -150,16 +150,35 @@ export default function TutoringPage() {
     }
   }, [session?.user?.email]);
 
-  // Pre-populate referral code from URL ?ref= param and track click
+  // Pre-populate referral code from URL ?ref= param and track click with UTM attribution
   useEffect(() => {
     const ref = searchParams.get('ref');
     if (ref) {
       setReferralCode(ref);
-      // Fire-and-forget click tracking
+
+      // Resolve or create a persistent visitor ID for attribution
+      let visitorId = '';
+      try {
+        const stored = localStorage.getItem('eg_visitor_id');
+        if (stored) {
+          visitorId = stored;
+        } else {
+          visitorId = `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          localStorage.setItem('eg_visitor_id', visitorId);
+        }
+      } catch {/* localStorage blocked — skip */}
+
       fetch('/api/referral/click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: ref }),
+        body: JSON.stringify({
+          code: ref,
+          visitor_id: visitorId || null,
+          landing_url: window.location.href.slice(0, 512),
+          utm_source: searchParams.get('utm_source'),
+          utm_medium: searchParams.get('utm_medium'),
+          utm_campaign: searchParams.get('utm_campaign'),
+        }),
       }).catch(() => {/* silent */});
     }
   }, [searchParams]);

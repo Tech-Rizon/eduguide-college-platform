@@ -18,16 +18,24 @@ export async function GET(request: Request) {
   const userId = userData.user.id
 
   type ReferralRow = {
+    id: string
     status: string
+    referee_email: string | null
     reward_coupon_id: string | null
     reward_expires_at: string | null
+    qualified_at: string | null
+    rewarded_at: string | null
     converted_at: string | null
+    created_at: string
   }
 
   const { data: rows, error } = await sb
     .from('referrals')
-    .select('status, reward_coupon_id, reward_expires_at, converted_at')
+    .select(
+      'id, status, referee_email, reward_coupon_id, reward_expires_at, qualified_at, rewarded_at, converted_at, created_at',
+    )
     .eq('referrer_id', userId)
+    .order('created_at', { ascending: false })
 
   if (error) {
     console.error('referrals select error:', error)
@@ -37,7 +45,7 @@ export async function GET(request: Request) {
   const typedRows: ReferralRow[] = (rows ?? []) as ReferralRow[]
   const total = typedRows.length
   const converted = typedRows.filter(
-    (r) => r.status === 'converted' || r.status === 'rewarded',
+    (r) => r.status === 'qualified' || r.status === 'rewarded',
   ).length
 
   // Active reward: most recent rewarded referral whose reward hasn't expired yet
@@ -57,6 +65,19 @@ export async function GET(request: Request) {
 
   const rewardPercent = parseInt(process.env.REFERRAL_REWARD_PERCENT ?? '20', 10)
 
+  // Partially mask referee emails for privacy in the dashboard
+  const history = typedRows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    referee_email: r.referee_email
+      ? r.referee_email.replace(/(?<=^.{3}).(?=.*@)/g, '*')
+      : null,
+    created_at: r.created_at,
+    qualified_at: r.qualified_at,
+    rewarded_at: r.rewarded_at,
+    reward_expires_at: r.reward_expires_at,
+  }))
+
   return NextResponse.json({
     totalReferrals: total,
     converted,
@@ -67,5 +88,6 @@ export async function GET(request: Request) {
           couponId: activeReward.reward_coupon_id,
         }
       : null,
+    history,
   })
 }

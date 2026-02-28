@@ -36,7 +36,9 @@ import {
   TrendingUp,
   Target,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  CreditCard,
+  Gift,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -186,8 +188,9 @@ export default function DashboardPage() {
   const hasAutoPromptedProfileRef = useRef(false);
   const hasHydratedLocalProfileRef = useRef(false);
   const [hasLoadedProfileRecord, setHasLoadedProfileRecord] = useState(false);
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
 
-  const { user: authUser, loading, signOut } = useAuth();
+  const { user: authUser, session, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (loading) return;
@@ -419,6 +422,24 @@ export default function DashboardPage() {
       openProfileCompletionDialog();
     }
   }, [user, hasLoadedProfileRecord, isLoadingProfileRecord, profileRecord?.username]);
+
+  const handleManageSubscription = async () => {
+    if (!session?.access_token) return;
+    setIsPortalLoading(true);
+    try {
+      const res = await fetch("/api/customer-portal", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) throw new Error(body.error || "Could not open billing portal");
+      if (body.url) window.location.href = body.url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open billing portal");
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
 
   const sendMessage = async () => {
     if (isTyping || !inputMessage.trim()) return;
@@ -750,6 +771,39 @@ export default function DashboardPage() {
                     <Button variant="ghost" className="w-full justify-start text-sm">
                       <Settings className="mr-2 h-4 w-4" />
                       Profile Settings
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Subscription & Referrals */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    Account
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm"
+                    onClick={handleManageSubscription}
+                    disabled={isPortalLoading}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {isPortalLoading ? "Opening…" : "Manage Subscription"}
+                  </Button>
+                  <Link href="/dashboard/referrals">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <Gift className="mr-2 h-4 w-4" />
+                      Refer &amp; Earn
+                    </Button>
+                  </Link>
+                  <Link href="/tutoring#support-plans">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Plans
                     </Button>
                   </Link>
                 </CardContent>

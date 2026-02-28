@@ -28,6 +28,16 @@ interface ReferralData {
   clicks: number;
 }
 
+interface ReferralHistoryRow {
+  id: string;
+  status: string;
+  referee_email: string | null;
+  created_at: string;
+  qualified_at: string | null;
+  rewarded_at: string | null;
+  reward_expires_at: string | null;
+}
+
 interface ReferralStats {
   totalReferrals: number;
   converted: number;
@@ -36,6 +46,7 @@ interface ReferralStats {
     expiresAt: string;
     couponId: string;
   } | null;
+  history: ReferralHistoryRow[];
 }
 
 function formatDate(iso: string): string {
@@ -50,6 +61,22 @@ function daysUntil(iso: string): number {
   const diff = new Date(iso).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
+
+const STATUS_STYLES: Record<string, string> = {
+  pending:   "bg-yellow-100 text-yellow-700",
+  qualified: "bg-blue-100 text-blue-700",
+  rewarded:  "bg-green-100 text-green-700",
+  reversed:  "bg-red-100 text-red-700",
+  converted: "bg-teal-100 text-teal-700",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending:   "Pending",
+  qualified: "In Hold",
+  rewarded:  "Rewarded",
+  reversed:  "Reversed",
+  converted: "Converted",
+};
 
 export default function ReferralDashboardPage() {
   const [referral, setReferral] = useState<ReferralData | null>(null);
@@ -308,6 +335,7 @@ export default function ReferralDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
+          className="mb-6"
         >
           <Card>
             <CardHeader>
@@ -332,7 +360,7 @@ export default function ReferralDashboardPage() {
                     step: "3",
                     color: "bg-green-100 text-green-700",
                     title: "You earn a reward",
-                    desc: "Once their payment processes you automatically receive 20% off your own subscription for 3 months.",
+                    desc: "After a 14-day confirmation window you automatically receive 20% off your own subscription for 3 months.",
                   },
                 ].map(({ step, color, title, desc }) => (
                   <li key={step} className="flex items-start gap-4">
@@ -351,6 +379,64 @@ export default function ReferralDashboardPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Referral history */}
+        {stats && stats.history.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Referral History</CardTitle>
+                <CardDescription>All referrals you have sent, newest first.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-gray-500">
+                        <th className="pb-2 pr-4 font-medium">Date</th>
+                        <th className="pb-2 pr-4 font-medium">Referred</th>
+                        <th className="pb-2 pr-4 font-medium">Status</th>
+                        <th className="pb-2 font-medium">Reward</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {stats.history.map((row) => (
+                        <tr key={row.id} className="py-2">
+                          <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                            {formatDate(row.created_at)}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-700 max-w-40 truncate">
+                            {row.referee_email ?? "—"}
+                          </td>
+                          <td className="py-2 pr-4">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status] ?? "bg-gray-100 text-gray-600"}`}
+                            >
+                              {STATUS_LABELS[row.status] ?? row.status}
+                            </span>
+                          </td>
+                          <td className="py-2 text-gray-600 text-xs whitespace-nowrap">
+                            {row.status === "rewarded" && row.reward_expires_at
+                              ? `20% off until ${formatDate(row.reward_expires_at)}`
+                              : row.status === "qualified"
+                              ? "Hold — reward pending"
+                              : row.status === "reversed"
+                              ? "Reversed"
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </main>
     </div>
   );

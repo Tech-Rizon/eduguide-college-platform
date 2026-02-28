@@ -3,11 +3,8 @@ import Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
 
-type SbClient = Awaited<ReturnType<typeof import('@/lib/supabaseServer')['supabaseServer']['from']>> extends never
-  ? never
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  : any
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SbClient = any
 let _sb: SbClient | null = null
 function getSupabaseServer(): SbClient | null {
   if (_sb) return _sb
@@ -45,74 +42,30 @@ async function upsertSubscription(
   )
 }
 
-async function issueReferralReward(
+/**
+ * Creates a pending referral record when checkout completes.
+ * The actual reward (coupon) is issued later by the process-rewards cron
+ * after the 14-day hold window elapses.
+ */
+async function createPendingReferral(
   sb: SbClient,
-  stripe: Stripe,
   referrerUserId: string,
   refereeEmail: string | null,
-  refereeUserId: string | null,
   code: string,
   stripeSessionId: string,
+  stripeSubscriptionId: string | null,
 ) {
-  const rewardPercent = parseInt(process.env.REFERRAL_REWARD_PERCENT ?? '20', 10)
-  const rewardMonths = parseInt(process.env.REFERRAL_REWARD_MONTHS ?? '3', 10)
-
-  // Create a Stripe coupon for the referrer
-  let couponId: string | null = null
-  let expiresAt: string | null = null
-  try {
-    const coupon = await stripe.coupons.create({
-      percent_off: rewardPercent,
-      duration: 'repeating',
-      duration_in_months: rewardMonths,
-      max_redemptions: 1,
-      metadata: { referrer_user_id: referrerUserId, type: 'referral_reward' },
-    })
-    couponId = coupon.id
-    const exp = new Date()
-    exp.setMonth(exp.getMonth() + rewardMonths)
-    expiresAt = exp.toISOString()
-  } catch (err) {
-    console.error('Failed to create referral reward coupon:', err)
-  }
-
-  // Upsert referral record
   await sb.from('referrals').upsert(
     {
       referrer_id: referrerUserId,
       referee_email: refereeEmail,
-      referee_user_id: refereeUserId,
       code,
-      status: couponId ? 'rewarded' : 'converted',
+      status: 'pending',
       stripe_session_id: stripeSessionId,
-      reward_coupon_id: couponId,
-      reward_expires_at: expiresAt,
-      converted_at: new Date().toISOString(),
+      stripe_subscription_id: stripeSubscriptionId,
     },
     { onConflict: 'stripe_session_id' },
   )
-
-  // Apply coupon to referrer's active subscription if possible
-  if (couponId) {
-    try {
-      const { data: referrerSub } = await sb
-        .from('subscriptions')
-        .select('stripe_subscription_id')
-        .eq('user_id', referrerUserId)
-        .in('status', ['active', 'trialing'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (referrerSub?.stripe_subscription_id) {
-        await stripe.subscriptions.update(referrerSub.stripe_subscription_id, {
-          discounts: [{ coupon: couponId }],
-        })
-      }
-    } catch (err) {
-      console.error('Failed to apply referral coupon to referrer subscription:', err)
-    }
-  }
 }
 
 async function upsertCheckoutRecoverySession(
@@ -202,7 +155,13 @@ export async function POST(request: Request) {
       const referralCode = fullSession.metadata?.referralCode ?? ''
       const referrerUserId = fullSession.metadata?.referrerUserId ?? ''
 
+      const subscriptionId =
+        typeof fullSession.subscription === 'string'
+          ? fullSession.subscription
+          : (fullSession.subscription as Stripe.Subscription | null)?.id ?? null
+
       if (sb) {
+        // Mark checkout recovery as completed
         try {
           await upsertCheckoutRecoverySession(sb, {
             sessionId: fullSession.id,
@@ -238,14 +197,8 @@ export async function POST(request: Request) {
         }
 
         // Record subscription
-        const subscriptionId =
-          typeof fullSession.subscription === 'string'
-            ? fullSession.subscription
-            : (fullSession.subscription as Stripe.Subscription | null)?.id ?? null
-
         if (subscriptionId) {
           try {
-            // Resolve user_id from email
             let userId: string | null = null
             if (customerEmail) {
               const { data: profile } = await sb
@@ -256,21 +209,24 @@ export async function POST(request: Request) {
               userId = profile?.id ?? null
             }
             await upsertSubscription(sb, stripe, subscriptionId, userId, plan)
-
-            // Issue referral reward if this checkout used a user-specific code
-            if (referrerUserId && referralCode) {
-              await issueReferralReward(
-                sb,
-                stripe,
-                referrerUserId,
-                customerEmail,
-                null,
-                referralCode,
-                fullSession.id,
-              )
-            }
           } catch (subErr) {
-            console.error('Subscription/referral processing error:', subErr)
+            console.error('Subscription processing error:', subErr)
+          }
+        }
+
+        // Create a PENDING referral — reward is issued after the 14-day hold via cron
+        if (referrerUserId && referralCode) {
+          try {
+            await createPendingReferral(
+              sb,
+              referrerUserId,
+              customerEmail,
+              referralCode,
+              fullSession.id,
+              subscriptionId,
+            )
+          } catch (refErr) {
+            console.error('Pending referral creation error:', refErr)
           }
         }
       }
@@ -341,7 +297,10 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------------------------
-    // invoice.paid — record each recurring subscription renewal
+    // invoice.paid
+    // - billing_reason='subscription_creation' → first invoice → mark referral
+    //   as 'qualified' so the 14-day hold timer starts
+    // - billing_reason='subscription_cycle'/'subscription_update' → renewal
     // -------------------------------------------------------------------------
     if (event.type === 'invoice.paid') {
       const invoice = event.data.object as Stripe.Invoice
@@ -355,10 +314,24 @@ export async function POST(request: Request) {
           ? (invoiceRaw['subscription'] as string)
           : null
 
-      // Only record renewals (not the first invoice, which checkout.session.completed already covers)
       const billingReason = (invoiceRaw['billing_reason'] as string | undefined) ?? ''
+      const isFirstInvoice = billingReason === 'subscription_creation'
       const isRenewal = billingReason === 'subscription_cycle' || billingReason === 'subscription_update'
 
+      // First invoice → start the 14-day referral hold timer
+      if (isFirstInvoice && subId && sb) {
+        try {
+          await sb
+            .from('referrals')
+            .update({ status: 'qualified', qualified_at: new Date().toISOString() })
+            .eq('stripe_subscription_id', subId)
+            .eq('status', 'pending')
+        } catch (err) {
+          console.error('referrals qualified update error:', err)
+        }
+      }
+
+      // Renewals → record payment row
       if (isRenewal && sb) {
         try {
           const customerEmail =
@@ -370,7 +343,7 @@ export async function POST(request: Request) {
 
           await sb.from('payments').insert([
             {
-              session_id: invoice.id, // invoice ID as idempotency key
+              session_id: invoice.id,
               customer_email: customerEmail,
               amount: amountPaid,
               currency,
@@ -387,12 +360,10 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------------------------
-    // invoice.payment_failed
+    // invoice.payment_failed → mark subscription past_due
     // -------------------------------------------------------------------------
     if (event.type === 'invoice.payment_failed') {
       const invoice = event.data.object as Stripe.Invoice
-      // In Stripe API v2 the subscription ref lives under parent.subscription_details.subscription
-      // Fall back to the raw object for backwards compatibility
       const invoiceRaw = invoice as unknown as Record<string, unknown>
       const rawSub =
         (invoiceRaw['parent'] as Record<string, unknown> | undefined)
@@ -411,6 +382,49 @@ export async function POST(request: Request) {
             .eq('stripe_subscription_id', subId)
         } catch (err) {
           console.error('subscriptions past_due update error:', err)
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // charge.refunded — if within 14-day hold window, reverse the referral
+    // so the reward is never issued by the cron
+    // -------------------------------------------------------------------------
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge
+      const chargeRaw = charge as unknown as Record<string, unknown>
+      // The subscription ID can be inferred via payment_intent → invoice → subscription
+      // but it is not directly on charge. Use customer ID to find the subscription.
+      const customerId =
+        typeof chargeRaw['customer'] === 'string'
+          ? chargeRaw['customer']
+          : (chargeRaw['customer'] as Record<string, unknown> | null)?.['id'] as string | undefined
+          ?? null
+
+      if (customerId && sb) {
+        try {
+          // Find the subscription(s) for this customer
+          const { data: subs } = await sb
+            .from('subscriptions')
+            .select('stripe_subscription_id')
+            .eq('stripe_customer_id', customerId)
+
+          const subIds: string[] = (subs ?? []).map(
+            (s: Record<string, unknown>) => s['stripe_subscription_id'] as string,
+          ).filter(Boolean)
+
+          if (subIds.length > 0) {
+            const holdWindowAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+            // Reverse any qualified referrals that are still in the hold window
+            await sb
+              .from('referrals')
+              .update({ status: 'reversed' })
+              .in('stripe_subscription_id', subIds)
+              .eq('status', 'qualified')
+              .gte('qualified_at', holdWindowAgo)
+          }
+        } catch (err) {
+          console.error('charge.refunded referral reversal error:', err)
         }
       }
     }
