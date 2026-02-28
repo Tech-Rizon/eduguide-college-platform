@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -799,7 +800,20 @@ export default function DashboardPage() {
                               ? "bg-blue-600 text-white"
                               : "bg-gray-100 text-gray-900"
                           }`}>
-                            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+                            {message.sender === "ai" ? (
+                              <div className="prose prose-sm max-w-none text-sm leading-relaxed
+                                [&>p]:mb-2 [&>p:last-child]:mb-0
+                                [&>ul]:mt-1 [&>ul]:mb-2 [&>ul]:pl-4 [&>ul>li]:mb-0.5 [&>ul>li]:list-disc
+                                [&>ol]:mt-1 [&>ol]:mb-2 [&>ol]:pl-4 [&>ol>li]:mb-0.5 [&>ol>li]:list-decimal
+                                [&_strong]:font-semibold
+                                [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-1
+                                [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-1
+                                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1">
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+                            )}
 
                             {message.sources && message.sources.length > 0 && (
                               <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
