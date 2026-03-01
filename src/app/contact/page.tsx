@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormField, FormItem, FormLabel, FormMessage, FormControl } from "@/components/ui/form";
 import { useState } from "react";
-import { GraduationCap, ArrowLeft, Mail, Phone } from "lucide-react";
+import { GraduationCap, ArrowLeft, Mail, Phone, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -137,13 +137,15 @@ export default function ContactPage() {
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                <Mail className="h-6 w-6 text-purple-600" />
+                <MessageSquare className="h-6 w-6 text-purple-600" />
               </div>
-              <CardTitle>Support</CardTitle>
+              <CardTitle>Live Agent</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">help@eduguide.online</p>
-              <p className="text-sm text-gray-500 mt-2">For urgent technical issues</p>
+              <p className="text-sm text-gray-500 mb-4">Chat with a real person right now — no waiting.</p>
+              <Button asChild size="sm" className="w-full">
+                <Link href="/tutoring-support">Start Chat</Link>
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
