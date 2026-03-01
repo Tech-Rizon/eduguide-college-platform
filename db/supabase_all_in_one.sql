@@ -1782,5 +1782,38 @@ VALUES ('course-materials', 'course-materials', FALSE)
 ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- =============================================================================
+-- Section 13: Student Lead Capture (migration 20260302)
+-- Stores contact info from registration Step 1 before auth account is created.
+-- Enables staff to call new leads and help them complete onboarding.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.student_leads (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT        NOT NULL,
+  last_name  TEXT        NOT NULL,
+  email      TEXT        NOT NULL,
+  phone      TEXT,
+  notes      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (email)
+);
+
+CREATE INDEX IF NOT EXISTS student_leads_email_idx ON public.student_leads (email);
+CREATE INDEX IF NOT EXISTS student_leads_created_at_idx ON public.student_leads (created_at DESC);
+
+ALTER TABLE public.student_leads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public lead capture" ON public.student_leads;
+CREATE POLICY "Public lead capture"
+  ON public.student_leads FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access to student_leads" ON public.student_leads;
+CREATE POLICY "Service role full access to student_leads"
+  ON public.student_leads FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+-- =============================================================================
 -- End of all-in-one Supabase database script.
 -- =============================================================================

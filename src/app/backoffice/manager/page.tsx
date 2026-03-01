@@ -18,6 +18,23 @@ type StaffUser = {
   staffLevel: "tutor" | "support" | "manager" | "super_admin";
 };
 
+type StudentLead = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  notes: string | null;
+  created_at: string;
+  status: "lead" | "registered" | "subscribed";
+};
+
+const STUDENT_STATUS_BADGE: Record<string, string> = {
+  lead: "bg-slate-500/20 text-slate-300",
+  registered: "bg-blue-500/20 text-blue-300",
+  subscribed: "bg-emerald-500/20 text-emerald-300",
+};
+
 type BackofficeTicket = {
   id: string;
   title: string;
@@ -111,6 +128,9 @@ export default function ManagerDashboardPage() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [openThreadTicketId, setOpenThreadTicketId] = useState<string | null>(null);
   const [assignmentMap, setAssignmentMap] = useState<Record<string, { assignedTeam: "tutor" | "support"; assigneeUserId: string }>>({});
+  const [activeView, setActiveView] = useState<"tickets" | "students">("tickets");
+  const [students, setStudents] = useState<StudentLead[]>([]);
+  const [studentStatusFilter, setStudentStatusFilter] = useState("all");;
 
   const authHeaders = useMemo(
     () => ({
@@ -125,9 +145,10 @@ export default function ManagerDashboardPage() {
 
     setRefreshing(true);
     try {
-      const [ticketRes, staffRes] = await Promise.all([
+      const [ticketRes, staffRes, studentRes] = await Promise.all([
         fetch("/api/backoffice/tickets", { headers: authHeaders }),
         fetch("/api/backoffice/staff", { headers: authHeaders }),
+        fetch("/api/admin/students", { headers: authHeaders }),
       ]);
 
       if (!ticketRes.ok || !staffRes.ok) {
@@ -139,6 +160,10 @@ export default function ManagerDashboardPage() {
       const staffPayload = await staffRes.json() as { staff?: StaffUser[] };
       setTickets(ticketPayload?.tickets ?? []);
       setStaff(staffPayload?.staff ?? []);
+      if (studentRes.ok) {
+        const studentPayload = await studentRes.json() as { students?: StudentLead[] };
+        setStudents(studentPayload?.students ?? []);
+      }
     } catch {
       toast.error("Unable to load manager queue.");
     } finally {
@@ -260,6 +285,104 @@ export default function ManagerDashboardPage() {
       subtitle="Review all incoming tickets, track auto-assignments, and override routing when needed."
       levelLabel="MANAGER"
     >
+      {/* View switcher */}
+      <div className="flex gap-2">
+        <Button
+          variant={activeView === "tickets" ? "default" : "outline"}
+          onClick={() => setActiveView("tickets")}
+          className={activeView !== "tickets" ? "border-slate-700 bg-transparent hover:bg-slate-800 text-slate-300" : ""}
+        >
+          Tickets
+        </Button>
+        <Button
+          variant={activeView === "students" ? "default" : "outline"}
+          onClick={() => setActiveView("students")}
+          className={activeView !== "students" ? "border-slate-700 bg-transparent hover:bg-slate-800 text-slate-300" : ""}
+        >
+          Students
+          <Badge className="ml-2 bg-slate-600 text-slate-200">{students.length}</Badge>
+        </Button>
+      </div>
+
+      {activeView === "students" && (
+        <>
+          {/* Student filter */}
+          <div className="flex items-center gap-3">
+            <Select value={studentStatusFilter} onValueChange={setStudentStatusFilter}>
+              <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-200 w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All students</SelectItem>
+                <SelectItem value="lead">Leads (no account)</SelectItem>
+                <SelectItem value="registered">Registered</SelectItem>
+                <SelectItem value="subscribed">Subscribed</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-slate-400">
+              {students.filter((s) => studentStatusFilter === "all" || s.status === studentStatusFilter).length} student(s)
+            </span>
+          </div>
+
+          {/* Student table */}
+          <Card className="bg-slate-900 border-slate-800">
+            <CardHeader>
+              <CardTitle>Students</CardTitle>
+              <CardDescription className="text-slate-400">
+                All students who have started registration. Leads haven&apos;t created an account yet — reach out to help them get started.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {students
+                  .filter((s) => studentStatusFilter === "all" || s.status === studentStatusFilter)
+                  .map((s) => (
+                    <div key={s.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-100">
+                            {s.first_name} {s.last_name}
+                          </p>
+                          <p className="text-sm text-slate-400 mt-0.5">{s.email}</p>
+                          {s.phone && (
+                            <p className="text-sm text-slate-300 mt-0.5 font-mono">{s.phone}</p>
+                          )}
+                          <p className="text-xs text-slate-500 mt-1">{formatRelativeTime(s.created_at)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge className={STUDENT_STATUS_BADGE[s.status] ?? STUDENT_STATUS_BADGE.lead}>
+                            {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                          </Badge>
+                          {s.phone && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-slate-600 bg-transparent hover:bg-slate-700 text-slate-300 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(s.phone ?? "");
+                                toast.success("Phone copied");
+                              }}
+                            >
+                              Copy Phone
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                {students.filter((s) => studentStatusFilter === "all" || s.status === studentStatusFilter).length === 0 && (
+                  <p className="text-sm text-slate-400 py-6 text-center">
+                    {studentStatusFilter === "all" ? "No students yet." : `No ${studentStatusFilter} students.`}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {activeView === "tickets" && (
+      <>
       {/* Stats */}
       <div className="grid sm:grid-cols-4 gap-4">
         <Card className="bg-slate-900 border-slate-800">
@@ -463,6 +586,8 @@ export default function ManagerDashboardPage() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
     </BackofficeShell>
   );
 }
