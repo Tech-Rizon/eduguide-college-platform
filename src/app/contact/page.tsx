@@ -202,7 +202,7 @@ export default function ContactPage() {
                       <FormControl>
                         <Textarea
                           placeholder="Let us know how we can assist you"
-                          className="min-h-[120px]"
+                          className="min-h-30"
                           {...field}
                         />
                       </FormControl>

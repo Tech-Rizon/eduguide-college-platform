@@ -525,7 +525,7 @@ export default function TutoringPage() {
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Homework help</span>
+                    <span>Assignment help</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />

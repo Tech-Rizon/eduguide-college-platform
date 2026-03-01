@@ -264,7 +264,7 @@ export default function DemoPage() {
           </AlertDescription>
         </Alert>
 
-        <Card className="flex flex-col overflow-hidden h-[calc(100vh-300px)] min-h-[500px] max-h-[700px]">
+        <Card className="flex flex-col overflow-hidden h-[calc(100vh-300px)] min-h-125 max-h-175">
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -305,12 +305,12 @@ export default function DemoPage() {
                         </AvatarFallback>
                       </Avatar>
 
-                      <div className={`max-w-full overflow-hidden break-words rounded-lg px-4 py-3 ${
+                      <div className={`max-w-full overflow-hidden wrap-break-word rounded-lg px-4 py-3 ${
                         message.sender === "user"
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-900"
                       }`}>
-                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+                        <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">{message.content}</p>
 
                         {message.sources && message.sources.length > 0 && (
                           <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">

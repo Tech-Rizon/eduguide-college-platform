@@ -281,7 +281,7 @@ function TutoringSupportPage() {
                             <FormControl>
                               <Textarea
                                 placeholder="Please describe what you need help with, including specific topics, assignment details, deadlines, and any particular challenges you're facing..."
-                                className="min-h-[120px]"
+                                className="min-h-30"
                                 {...field}
                               />
                             </FormControl>
