@@ -866,6 +866,25 @@ export default function DashboardPage() {
                   </Link>
                 </CardContent>
               </Card>
+
+              {/* My Courses */}
+              <Card className="border-purple-100 bg-purple-50/30">
+                <CardContent className="pt-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                    <span className="font-semibold text-gray-900">My Courses</span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Upload notes &amp; chat with AI using your actual materials
+                  </p>
+                  <Link href="/dashboard/courses">
+                    <Button className="w-full bg-purple-600 hover:bg-purple-700" size="sm">
+                      Open Courses
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
