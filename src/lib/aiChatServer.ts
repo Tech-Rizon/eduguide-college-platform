@@ -91,7 +91,12 @@ function buildAcronym(name: string): string {
     .map((part) => part.trim().toLowerCase())
     .filter((part) => part && !STOP_WORDS.has(part))
     .map((part) => part[0])
+    .filter((char) => /[a-z0-9]/.test(char ?? ""))
     .join("");
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function buildCollegeAliases(college: CollegeEntry): string[] {
@@ -121,8 +126,13 @@ function findMentionedColleges(message: string): CollegeEntry[] {
   return collegeDatabase.filter((college) =>
     buildCollegeAliases(college).some((alias) => {
       if (!alias) return false;
-      const pattern = new RegExp(`\\b${alias.replace(/\s+/g, "\\s+")}\\b`, "i");
-      return pattern.test(normalizedMessage);
+      try {
+        const escapedAlias = alias.split(/\s+/).map(escapeRegex).join("\\s+");
+        const pattern = new RegExp(`\\b${escapedAlias}\\b`, "i");
+        return pattern.test(normalizedMessage);
+      } catch {
+        return false;
+      }
     })
   );
 }

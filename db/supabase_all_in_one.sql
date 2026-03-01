@@ -1758,7 +1758,7 @@ CREATE OR REPLACE FUNCTION public.match_course_chunks(
   match_count     int DEFAULT 5
 )
 RETURNS TABLE (id uuid, content text, document_name text, similarity float)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions
 AS $$
   SELECT
     cc.id,
