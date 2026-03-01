@@ -1,52 +1,63 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/hooks/useAuth";
 import {
-  type CollegeRecommendation,
-  findMatchingColleges,
-  hasLocation,
-  parseStudentIntent,
-} from "@/lib/collegeRecommendations";
-import { motion } from "framer-motion";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
-  BookOpen,
-  Bot,
-  DollarSign,
+  ArrowRight,
   GraduationCap,
-  LogOut,
-  MapPin,
   MessageCircle,
-  Search,
   Send,
-  Settings,
-  Star,
   User,
+  Bot,
+  Search,
+  BookOpen,
+  Settings,
+  LogOut,
+  Star,
+  MapPin,
+  DollarSign,
   Users,
+  TrendingUp,
+  Target,
+  Sparkles,
+  ExternalLink,
+  CreditCard,
+  Gift,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabaseClient";
+import type { UserProfile } from "@/lib/aiEngine";
+import type { AIChatResponse, AIChatSource } from "@/lib/aiChatTypes";
+import type { CollegeEntry } from "@/lib/collegeDatabase";
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "ai";
   timestamp: Date;
-  colleges?: CollegeRecommendation[];
+  colleges?: CollegeEntry[];
+  sources?: AIChatSource[];
+  followUpQuestions?: string[];
 }
 
 interface DashboardUser {
@@ -55,6 +66,22 @@ interface DashboardUser {
   email: string;
   id: string;
   currentSchool?: string;
+}
+
+interface UserProfileRecord {
+  id: string;
+  username?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  location?: string | null;
+}
+
+interface ProfileCompletionFormState {
+  username: string;
+  gpa: string;
+  state: string;
+  intendedMajor: string;
+  budget: "" | "low" | "medium" | "high";
 }
 
 interface AuthUserExtended {
@@ -69,15 +96,103 @@ interface AuthUserExtended {
   };
 }
 
+const DASHBOARD_PROFILE_STORAGE_KEY_PREFIX = "eduguide:dashboard-profile:";
+const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
+
+function getDashboardProfileStorageKey(userId: string): string {
+  return `${DASHBOARD_PROFILE_STORAGE_KEY_PREFIX}${userId}`;
+}
+
+function parseStoredUserProfile(rawValue: string | null): Partial<UserProfile> {
+  if (!rawValue) return {};
+
+  try {
+    const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+    const next: Partial<UserProfile> = {};
+
+    if (typeof parsed.gpa === "number" && parsed.gpa >= 0 && parsed.gpa <= 4.5) {
+      next.gpa = parsed.gpa;
+    }
+    if (typeof parsed.state === "string" && parsed.state.trim()) {
+      next.state = parsed.state.trim().toUpperCase();
+    }
+    if (typeof parsed.intendedMajor === "string" && parsed.intendedMajor.trim()) {
+      next.intendedMajor = parsed.intendedMajor.trim();
+    }
+    if (parsed.budget === "low" || parsed.budget === "medium" || parsed.budget === "high") {
+      next.budget = parsed.budget;
+    }
+
+    return next;
+  } catch {
+    return {};
+  }
+}
+
+function buildWelcomeMessage(name: string): string {
+  return `Welcome back, ${name}. I'm your research-backed EduGuide assistant.\n\nI can match schools to your profile, pull fresh details from official college sites, and help you think through applications, transfer plans, and academic decisions without making the chat feel robotic.\n\n**What I can help with right now:**\n- College matching based on GPA, budget, state, and interests\n- Official-site research on programs, admissions, aid, and student support\n- School comparisons, shortlist strategy, and next-step planning\n- Free assignment support inside your account: prompt breakdowns, concept explanations, outlines, study plans, and draft feedback\n\nTry saying: *"I want a strong computer science school in California with real aid and internship options."*`;
+}
+
+function createMessageId(prefix: string): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeUserProfile(currentProfile: UserProfile, updates?: Partial<UserProfile>): UserProfile {
+  if (!updates) return currentProfile;
+
+  const mergeUnique = (values: string[] | undefined) =>
+    values ? Array.from(new Set(values.filter(Boolean))) : undefined;
+
+  return {
+    ...currentProfile,
+    ...updates,
+    demographics: mergeUnique([...(currentProfile.demographics || []), ...(updates.demographics || [])]),
+    interests: mergeUnique([...(currentProfile.interests || []), ...(updates.interests || [])]),
+    preferredStates: mergeUnique([...(currentProfile.preferredStates || []), ...(updates.preferredStates || [])]),
+    schoolType: mergeUnique([...(currentProfile.schoolType || []), ...(updates.schoolType || [])]),
+  };
+}
+
+function openLiveAdvisor(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("eduguide:open-support", {
+      detail: {
+        live: true,
+        message,
+      },
+    })
+  );
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
+  const [profileRecord, setProfileRecord] = useState<UserProfileRecord | null>(null);
+  const [isLoadingProfileRecord, setIsLoadingProfileRecord] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isSavingProfileDialog, setIsSavingProfileDialog] = useState(false);
+  const [profileDialogError, setProfileDialogError] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<ProfileCompletionFormState>({
+    username: "",
+    gpa: "",
+    state: "",
+    intendedMajor: "",
+    budget: "",
+  });
   const router = useRouter();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const hasAutoPromptedProfileRef = useRef(false);
+  const hasHydratedLocalProfileRef = useRef(false);
+  const [hasLoadedProfileRecord, setHasLoadedProfileRecord] = useState(false);
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [savedCollegeIds, setSavedCollegeIds] = useState<Set<string>>(new Set());
 
-  const { user: authUser, loading, signOut } = useAuth();
+  const { user: authUser, session, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (loading) return;
@@ -87,272 +202,376 @@ export default function DashboardPage() {
       return;
     }
 
-    // Set user from authentication
     const typedAuthUser = authUser as AuthUserExtended;
+    const firstName = typedAuthUser.firstName || typedAuthUser.user_metadata?.first_name || "Student";
     setUser({
       id: typedAuthUser.id,
-      firstName:
-        typedAuthUser.firstName ||
-        typedAuthUser.user_metadata?.first_name ||
-        "Demo",
-      lastName:
-        typedAuthUser.lastName ||
-        typedAuthUser.user_metadata?.last_name ||
-        "User",
-      email: typedAuthUser.email || "demo@example.com",
-      currentSchool: typedAuthUser.currentSchool || "Demo School",
+      firstName,
+      lastName: typedAuthUser.lastName || typedAuthUser.user_metadata?.last_name || "",
+      email: typedAuthUser.email || "",
+      currentSchool: typedAuthUser.currentSchool || ""
     });
 
-    // Add welcome message
-    setMessages([
-      {
-        id: "welcome",
-        content: `Hi there! I'm your AI college guidance assistant. I'm here to help you find the perfect college or university. I can help you with:
-
-• Finding colleges that match your interests and academic goals
-• Understanding admission requirements
-• Exploring different programs and majors
-• Learning about financial aid and scholarships
-• Getting tips for college applications
-
-What would you like to know about colleges today?`,
-        sender: "ai",
-        timestamp: new Date(),
-      },
-    ]);
+    setMessages([{
+      id: "welcome",
+      content: buildWelcomeMessage(firstName),
+      sender: "ai",
+      timestamp: new Date(),
+    }]);
   }, [authUser, loading, router]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages.length and isTyping are intentional trigger deps
   useEffect(() => {
-    const scrollToBottom = () => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const viewport = messageListRef.current;
+    if (!viewport) return;
+
+    const timer = window.setTimeout(() => {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 60);
+
+    return () => window.clearTimeout(timer);
+  }, [messages.length, isTyping]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: user?.id is the reset trigger; refs and setters are stable
+  useEffect(() => {
+    hasAutoPromptedProfileRef.current = false;
+    hasHydratedLocalProfileRef.current = false;
+    setHasLoadedProfileRecord(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+
+    const storedProfile = parseStoredUserProfile(
+      window.localStorage.getItem(getDashboardProfileStorageKey(user.id))
+    );
+
+    hasHydratedLocalProfileRef.current = true;
+    if (Object.keys(storedProfile).length > 0) {
+      setUserProfile(prev => ({ ...prev, ...storedProfile }));
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+    if (!hasHydratedLocalProfileRef.current) return;
+
+    const persisted = {
+      gpa: typeof userProfile.gpa === "number" ? userProfile.gpa : undefined,
+      state: userProfile.state || undefined,
+      intendedMajor: userProfile.intendedMajor || undefined,
+      budget: userProfile.budget || undefined,
     };
 
-    // Use setTimeout to ensure DOM is updated
-    const timer = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timer);
-  }, [messages.length]);
+    window.localStorage.setItem(
+      getDashboardProfileStorageKey(user.id),
+      JSON.stringify(persisted)
+    );
+  }, [user?.id, userProfile.gpa, userProfile.state, userProfile.intendedMajor, userProfile.budget]);
 
-  const simulateAIResponse = (
-    userMessage: string,
-  ): { content: string; colleges?: CollegeRecommendation[] } => {
-    const message = userMessage.toLowerCase();
+  useEffect(() => {
+    if (!user?.id) return;
 
-    // For logged in users, access their profile info for more personalized responses
-    const userInfo = user
-      ? `Based on your profile - ${user.firstName} from ${user.currentSchool || "your school"}`
-      : "";
-    const intent = parseStudentIntent(userMessage);
-    const matchingColleges = findMatchingColleges(intent);
+    let cancelled = false;
+    setIsLoadingProfileRecord(true);
+    setHasLoadedProfileRecord(false);
 
-    if (!hasLocation(userMessage)) {
-      return {
-        content: `I can absolutely help you find schools near you. Please share your city and state (example: "Phoenix, AZ"), and I'll recommend colleges in your area with tuition and admission details.`,
-      };
-    }
+    // Get the current access token for the authenticated API call
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (!token) {
+        if (!cancelled) {
+          setIsLoadingProfileRecord(false);
+          setHasLoadedProfileRecord(true);
+        }
+        return;
+      }
 
-    if (
-      message.includes("california") ||
-      message.includes("ca") ||
-      message.includes("west coast")
-    ) {
-      return {
-        content: `Great choice! California has excellent educational opportunities. ${userInfo ? `${userInfo}, here` : "Here"} are some colleges in California that might interest you:`,
-        colleges: matchingColleges,
-      };
-    }
+      return fetch("/api/user-profile", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as { profile?: UserProfileRecord | null; error?: string };
+          if (!response.ok) throw new Error(payload.error || "Failed to load profile");
+          return payload.profile ?? null;
+        })
+        .then((profile) => {
+          if (!cancelled) setProfileRecord(profile);
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            console.error("Failed to load dashboard profile:", error);
+            toast.error("Could not load your profile. Please refresh.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingProfileRecord(false);
+            setHasLoadedProfileRecord(true);
+          }
+        });
+    });
 
-    if (
-      message.includes("computer science") ||
-      message.includes("engineering") ||
-      message.includes("tech")
-    ) {
-      return {
-        content: `Excellent choice! Computer Science and Engineering are in high demand. ${userInfo ? `${userInfo}, before` : "Before"} I recommend specific programs, could you tell me:
-
-• **What's your current location or preferred state?**
-• **Are you interested in research universities or more practical/applied programs?**
-• **Do you prefer large universities or smaller colleges?**
-
-Here are some top CS/Engineering programs to consider:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (
-      message.includes("community college") ||
-      message.includes("affordable") ||
-      message.includes("cheap") ||
-      message.includes("budget")
-    ) {
-      return {
-        content: `Smart thinking! Community colleges are excellent and affordable. ${userInfo ? `${userInfo}, to` : "To"} help you find the best options:
-
-• **What city/state are you in?** (for local options)
-• **What do you plan to study?**
-• **Are you planning to transfer to a 4-year university later?**
-
-Here's an example of an excellent community college:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (
-      message.includes("requirements") ||
-      message.includes("admission") ||
-      message.includes("apply")
-    ) {
-      return {
-        content: `Great question! ${userInfo ? `${userInfo}, admission` : "Admission"} requirements vary by school type. To give you specific guidance:
-
-• **What type of schools are you applying to?** (Community college, state university, private university)
-• **What's your current education level?** (High school, GED, transfer student)
-• **Do you have standardized test scores?** (SAT/ACT)
-
-**General Requirements:**
-
-**Universities:**
-• High school diploma/GED + SAT/ACT scores
-• GPA typically 2.5-4.0 (varies by school)
-• Letters of recommendation & personal essay
-• Extracurricular activities
-
-**Community Colleges:**
-• High school diploma/GED
-• Placement tests for math/English
-• Open enrollment (much easier admission)
-
-Would you like help creating an admission strategy based on your specific situation?`,
-      };
-    }
-
-    if (
-      message.includes("financial aid") ||
-      message.includes("scholarship") ||
-      message.includes("money") ||
-      message.includes("cost")
-    ) {
-      return {
-        content: `I'd love to help with financial aid! ${userInfo ? `${userInfo}, to` : "To"} give you the most relevant information:
-
-• **What's your estimated family income range?** (affects aid eligibility)
-• **Are you a first-generation college student?**
-• **What state do you live in?** (for state-specific aid)
-• **Any special circumstances?** (military, athletics, academic achievements)
-
-**Here are the main funding options:**
-
-**Federal Aid (file FAFSA):**
-• Pell Grants (up to $7,000+/year, don't repay)
-• Federal student loans
-• Work-study programs
-
-**Scholarships:**
-• Merit-based (academic performance)
-• Need-based aid
-• Field-specific scholarships
-• Athletic/extracurricular scholarships
-
-**State & Local:**
-• State grant programs
-• Community foundation scholarships
-• Employer tuition assistance
-
-Would you like help finding specific scholarship opportunities?`,
-      };
-    }
-
-    // Location-based responses
-    if (message.includes("texas") || message.includes("tx")) {
-      return {
-        content: `Texas has fantastic educational opportunities! ${userInfo ? `${userInfo}, to` : "To"} help narrow down your options:
-
-• **What part of Texas?** (Dallas, Houston, Austin, San Antonio, etc.)
-• **Looking for universities or community colleges?**
-• **Interested in any specific programs?**
-
-Texas has excellent public universities like UT Austin, Texas A&M, and many great community colleges with affordable tuition for residents. Here are options based on your location:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    if (message.includes("new york") || message.includes("ny")) {
-      return {
-        content: `New York offers incredible educational diversity! ${userInfo ? `${userInfo}, a` : "A"} few questions to help:
-
-• **NYC area or upstate New York?**
-• **Preferred program of study?**
-• **Budget considerations?** (NYC can be expensive)
-
-NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY and CUNY systems for more affordable options. Here are location-based recommendations:`,
-        colleges: matchingColleges,
-      };
-    }
-
-    // Default responses with follow-up questions
-    const responses = [
-      `That's a great question! ${userInfo ? `${userInfo}, can` : "Can"} you tell me more about your specific interests or goals? I'd love to help you find colleges that match what you're looking for.
-
-• **Your preferred location for college**
-• **Your main academic interests**
-• **Whether you prefer universities or community colleges**`,
-
-      `I'd be happy to help with that! ${userInfo ? `${userInfo}, what's` : "What's"} your current academic situation? Are you in high school, community college, or looking to transfer?
-
-• **What do you want to study?**
-• **Any preference for school size or setting?**
-• **Budget considerations?**`,
-
-      `Excellent question! ${userInfo ? `${userInfo}, to` : "To"} give you the best recommendations, could you share:
-
-• **What you're most interested in studying**
-• **What state or region interests you**
-• **Your timeline for starting college**`,
-    ];
-
-    return {
-      content: `${responses[Math.floor(Math.random() * responses.length)]}\n\nBased on your location, here are recommended schools to start with:`,
-      colleges: matchingColleges,
+    return () => {
+      cancelled = true;
     };
+  }, [user?.id]);
+
+  // Load saved college IDs for "Add to Plan" button state
+  useEffect(() => {
+    if (!session?.access_token || !user?.id) return;
+    fetch("/api/my-plan", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { shortlist: Array<{ college_id: string }> } | null) => {
+        if (data?.shortlist) {
+          setSavedCollegeIds(new Set(data.shortlist.map((s) => s.college_id)));
+        }
+      })
+      .catch(() => {}); // Non-fatal
+  }, [session?.access_token, user?.id]);
+
+  const openProfileCompletionDialog = () => {
+    setProfileDialogError(null);
+    setProfileForm({
+      username: profileRecord?.username || "",
+      gpa: typeof userProfile.gpa === "number" ? String(userProfile.gpa) : "",
+      state: userProfile.state || "",
+      intendedMajor: userProfile.intendedMajor || "",
+      budget: userProfile.budget || "",
+    });
+    setIsProfileDialogOpen(true);
+  };
+
+  const saveProfileCompletionDialog = async () => {
+    if (!user) return;
+
+    const normalizedUsername = profileForm.username.trim().toLowerCase();
+    if (!USERNAME_REGEX.test(normalizedUsername)) {
+      setProfileDialogError("Username must be 3-30 characters and use only letters, numbers, and underscores.");
+      return;
+    }
+
+    let parsedGpa: number | undefined;
+    if (profileForm.gpa.trim()) {
+      const gpaValue = Number.parseFloat(profileForm.gpa.trim());
+      if (!Number.isFinite(gpaValue) || gpaValue < 0 || gpaValue > 4.5) {
+        setProfileDialogError("GPA must be a number between 0.0 and 4.5.");
+        return;
+      }
+      parsedGpa = Number.parseFloat(gpaValue.toFixed(2));
+    }
+
+    setProfileDialogError(null);
+    setIsSavingProfileDialog(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Session expired. Please log in again.");
+
+      const response = await fetch("/api/user-profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: user.email || null,
+          full_name: `${user.firstName} ${user.lastName}`.trim() || null,
+          username: normalizedUsername,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { profile?: UserProfileRecord; error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to save profile details");
+      }
+
+      setProfileRecord(payload.profile || {
+        id: user.id,
+        username: normalizedUsername,
+        full_name: `${user.firstName} ${user.lastName}`.trim() || null,
+        email: user.email || null,
+      });
+
+      setUserProfile((prev) => {
+        const next = { ...prev };
+
+        if (parsedGpa !== undefined) next.gpa = parsedGpa;
+        else delete next.gpa;
+
+        const normalizedState = profileForm.state.trim().toUpperCase();
+        if (normalizedState) next.state = normalizedState;
+        else delete next.state;
+
+        const major = profileForm.intendedMajor.trim();
+        if (major) next.intendedMajor = major;
+        else delete next.intendedMajor;
+
+        if (profileForm.budget) next.budget = profileForm.budget;
+        else delete next.budget;
+
+        return next;
+      });
+
+      hasAutoPromptedProfileRef.current = true;
+      setIsProfileDialogOpen(false);
+      toast.success("Profile details saved.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save profile details";
+      setProfileDialogError(message);
+    } finally {
+      setIsSavingProfileDialog(false);
+    }
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: openProfileCompletionDialog only calls stable state setters
+  useEffect(() => {
+    if (!user || !hasLoadedProfileRecord || isLoadingProfileRecord || hasAutoPromptedProfileRef.current) return;
+    if (!profileRecord?.username) {
+      hasAutoPromptedProfileRef.current = true;
+      openProfileCompletionDialog();
+    }
+  }, [user, hasLoadedProfileRecord, isLoadingProfileRecord, profileRecord?.username]);
+
+  const handleManageSubscription = async () => {
+    if (!session?.access_token) return;
+    setIsPortalLoading(true);
+    try {
+      const res = await fetch("/api/customer-portal", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) throw new Error(body.error || "Could not open billing portal");
+      if (body.url) window.location.href = body.url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open billing portal");
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
+
+  const handleAddToMyPlan = async (college: CollegeEntry) => {
+    if (!session?.access_token || savedCollegeIds.has(college.id)) return;
+    try {
+      const res = await fetch("/api/my-plan/colleges", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ collegeId: college.id, collegeName: college.name }),
+      });
+      if (res.ok || res.status === 409) {
+        setSavedCollegeIds((prev) => new Set([...prev, college.id]));
+        toast.success(`${college.name} added to your plan`);
+      } else {
+        toast.error("Could not add to plan");
+      }
+    } catch {
+      toast.error("Could not add to plan");
+    }
   };
 
   const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (isTyping || !inputMessage.trim()) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: createMessageId("user"),
       content: inputMessage,
       sender: "user",
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputMessage;
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const aiResponse = simulateAIResponse(inputMessage);
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: aiResponse.content,
-        sender: "ai",
-        timestamp: new Date(),
-        colleges: aiResponse.colleges,
-      };
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
-      setMessages((prev) => [...prev, aiMessage]);
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          currentProfile: userProfile,
+          history: [
+            ...messages.slice(-13).map((message) => ({
+              role: message.sender === "user" ? "user" : "assistant",
+              content: message.content,
+            })),
+            {
+              role: "user" as const,
+              content: currentInput,
+            },
+          ],
+          message: currentInput,
+          mode: "dashboard",
+          userName: profileRecord?.username || user?.firstName,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as AIChatResponse & { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Chat request failed");
+      }
+
+      if (payload.profileUpdates) {
+        setUserProfile((prev) => mergeUserProfile(prev, payload.profileUpdates));
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId("ai"),
+          content: payload.content,
+          sender: "ai",
+          timestamp: new Date(),
+          colleges: payload.colleges,
+          sources: payload.sources,
+          followUpQuestions: payload.followUpQuestions,
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId("ai-error"),
+          content: "I ran into an issue generating that response. Please try again.",
+          sender: "ai",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
+  };
+
+  const handleQuickAction = (prompt: string) => {
+    setInputMessage(prompt);
   };
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      const { error } = await signOut();
+      if (error) throw error;
       toast.success("Logged out successfully!");
-      router.push("/");
-    } catch (error) {
-      console.error("Error signing out:", error);
-      toast.success("Logged out successfully!");
+    } catch {
+      // Still clear client state and redirect even if the API call failed
+      toast.error("Sign-out failed. You have been redirected.");
+    } finally {
       router.push("/");
     }
   };
@@ -364,6 +583,63 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
       </div>
     );
   }
+
+  const collegesExplored = messages.reduce((acc, msg) => acc + (msg.colleges?.length || 0), 0);
+  const hasUsername = Boolean(profileRecord?.username);
+  const profileCompleteness = [
+    profileRecord?.username,
+    userProfile.gpa,
+    userProfile.state,
+    userProfile.intendedMajor,
+    userProfile.budget,
+  ].filter(Boolean).length;
+  const profileCompletenessWidthClass = ["w-0", "w-1/5", "w-2/5", "w-3/5", "w-4/5", "w-full"][profileCompleteness];
+  const displayName = profileRecord?.username
+    ? `@${profileRecord.username}`
+    : `${user.firstName} ${user.lastName}`.trim() || user.email;
+  const avatarText = (
+    profileRecord?.username?.slice(0, 2) ||
+    `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}` ||
+    user.email.slice(0, 2) ||
+    "U"
+  ).toUpperCase();
+  const missingProfileFields = [
+    !hasUsername ? "username" : null,
+    !userProfile.gpa ? "GPA" : null,
+    !userProfile.state ? "state" : null,
+    !userProfile.intendedMajor ? "major" : null,
+    !userProfile.budget ? "budget" : null,
+  ].filter(Boolean) as string[];
+
+  const nextBestStep = (() => {
+    if (profileCompleteness < 5) {
+      return {
+        title: "Complete Your Profile",
+        detail: `Add ${missingProfileFields.join(", ")} to unlock better matches and student guidance.`,
+        actionLabel: "Complete Profile Form",
+        action: openProfileCompletionDialog,
+      };
+    }
+
+    if (collegesExplored < 3) {
+      return {
+        title: "Build a Shortlist",
+        detail: "Explore at least 3 recommended schools before comparing options.",
+        actionLabel: "Find 3 Matching Colleges",
+        action: () => handleQuickAction("Find at least three colleges that match my profile."),
+      };
+    }
+
+    return {
+      title: "Advisor Review",
+      detail: "Escalate to live support for deadline and application strategy checks.",
+      actionLabel: "Talk to Live Advisor",
+      action: () =>
+        openLiveAdvisor(
+          "I need a live advisor to review my shortlist and confirm my next application steps."
+        ),
+    };
+  })();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -377,14 +653,22 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
             </Link>
 
             <div className="flex items-center space-x-4">
+              <Link href="/colleges">
+                <Button variant="ghost" size="sm">Colleges</Button>
+              </Link>
+              <Link href="/services">
+                <Button variant="ghost" size="sm">Services</Button>
+              </Link>
+              <Link href="/feedback">
+                <Button variant="ghost" size="sm">Feedback</Button>
+              </Link>
               <Avatar>
                 <AvatarFallback>
-                  {user.firstName?.[0]}
-                  {user.lastName?.[0]}
+                  {avatarText}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-gray-900">
-                {user.firstName} {user.lastName}
+              <span className="text-gray-900 hidden sm:inline">
+                {displayName}
               </span>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
@@ -399,10 +683,63 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="space-y-6">
+              {/* Profile Completeness */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    Your Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                      className={`bg-blue-600 h-2 rounded-full transition-all duration-500 ${profileCompletenessWidthClass}`}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">{profileCompleteness}/5 details shared</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Username</span>
+                      <Badge variant={profileRecord?.username ? "default" : "secondary"}>
+                        {profileRecord?.username ? `@${profileRecord.username}` : "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">GPA</span>
+                      <Badge variant={userProfile.gpa ? "default" : "secondary"}>
+                        {userProfile.gpa || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Location</span>
+                      <Badge variant={userProfile.state ? "default" : "secondary"}>
+                        {userProfile.state || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Major</span>
+                      <Badge variant={userProfile.intendedMajor ? "default" : "secondary"}>
+                        {userProfile.intendedMajor || "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Budget</span>
+                      <Badge variant={userProfile.budget ? "default" : "secondary"}>
+                        {userProfile.budget || "Not set"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Quick Stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Your Journey</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    Your Journey
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -410,47 +747,142 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                     <Badge variant="secondary">{messages.length - 1}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Colleges Explored
-                    </span>
-                    <Badge variant="secondary">
-                      {messages.reduce(
-                        (acc, msg) => acc + (msg.colleges?.length || 0),
-                        0,
-                      )}
-                    </Badge>
+                    <span className="text-sm text-gray-600">Colleges Explored</span>
+                    <Badge variant="secondary">{collegesExplored}</Badge>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Next Best Step */}
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    Next Best Step
+                  </CardTitle>
+                  <CardDescription>{nextBestStep.title}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-gray-600">{nextBestStep.detail}</p>
+                  <Button className="w-full" onClick={nextBestStep.action}>
+                    {nextBestStep.actionLabel}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </CardContent>
               </Card>
 
               {/* Quick Actions */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Quick Actions</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    Quick Prompts
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Find colleges that match my profile")}>
                     <Search className="mr-2 h-4 w-4" />
-                    Find Colleges
+                    Find Matching Colleges
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Tell me about community colleges")}>
                     <BookOpen className="mr-2 h-4 w-4" />
-                    Application Tips
+                    Community Colleges
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("What financial aid options are available?")}>
                     <DollarSign className="mr-2 h-4 w-4" />
-                    Financial Aid
+                    Financial Aid Help
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleQuickAction("Help me with admissions requirements")}>
+                    <Target className="mr-2 h-4 w-4" />
+                    Admissions Guide
                   </Button>
                   <Link href="/tutoring-support">
-                    <Button variant="ghost" className="w-full justify-start">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
                       <MessageCircle className="mr-2 h-4 w-4" />
                       Get Tutoring Help
                     </Button>
                   </Link>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={openProfileCompletionDialog}>
                     <Settings className="mr-2 h-4 w-4" />
-                    Profile Settings
+                    Complete Profile Details
                   </Button>
+                  <Link href="/profile">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* Subscription & Referrals */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    Account
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-sm"
+                    onClick={handleManageSubscription}
+                    disabled={isPortalLoading}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {isPortalLoading ? "Opening…" : "Manage Subscription"}
+                  </Button>
+                  <Link href="/dashboard/referrals">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <Gift className="mr-2 h-4 w-4" />
+                      Refer &amp; Earn
+                    </Button>
+                  </Link>
+                  <Link href="/tutoring#support-plans">
+                    <Button variant="ghost" className="w-full justify-start text-sm">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Plans
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* My College Plan */}
+              <Card className="border-blue-100 bg-blue-50/30">
+                <CardContent className="pt-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-gray-900">My College Plan</span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {savedCollegeIds.size} college{savedCollegeIds.size !== 1 ? "s" : ""} saved
+                  </p>
+                  <Link href="/dashboard/my-plan">
+                    <Button className="w-full" size="sm">
+                      View My Plan
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* My Courses */}
+              <Card className="border-purple-100 bg-purple-50/30">
+                <CardContent className="pt-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                    <span className="font-semibold text-gray-900">My Courses</span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Upload notes &amp; chat with AI using your actual materials
+                  </p>
+                  <Link href="/dashboard/courses">
+                    <Button className="w-full bg-purple-600 hover:bg-purple-700" size="sm">
+                      Open Courses
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
@@ -458,28 +890,27 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
 
           {/* Main Chat Area */}
           <div className="lg:col-span-3">
-            <Card
-              className="flex flex-col"
-              style={{
-                height: "calc(100vh - 200px)",
-                minHeight: "600px",
-                maxHeight: "800px",
-              }}
-            >
+            <Card className="flex flex-col overflow-hidden h-[calc(100vh-200px)] min-h-[600px] max-h-[850px]">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bot className="h-6 w-6 text-blue-600" />
-                  <CardTitle>AI College Guidance Assistant</CardTitle>
+                  <CardTitle>High-End College & Study AI</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Research + Fit
+                  </Badge>
                 </div>
                 <CardDescription>
-                  Ask me anything about colleges, admissions, or your academic
-                  journey!
+                  Ask naturally. The assistant will clarify what matters, pull official-school details when needed, and help with free assignment support inside your account.
                 </CardDescription>
               </CardHeader>
 
-              <CardContent className="flex-1 flex flex-col min-h-0">
-                {/* Messages */}
-                <ScrollArea className="flex-1 min-h-0 pr-4">
+              <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div
+                  ref={messageListRef}
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2"
+                  aria-live="polite"
+                >
                   <div className="space-y-4 pb-4">
                     {messages.map((message) => (
                       <motion.div
@@ -488,127 +919,191 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                       >
-                        <div
-                          className={`flex space-x-2 max-w-[80%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
-                        >
-                          <Avatar className="h-8 w-8">
+                        <div className={`flex w-full max-w-[90%] space-x-2 sm:max-w-[85%] ${message.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}>
+                          <Avatar className="h-8 w-8 shrink-0">
                             <AvatarFallback>
-                              {message.sender === "user" ? (
-                                <User className="h-4 w-4" />
-                              ) : (
-                                <Bot className="h-4 w-4" />
-                              )}
+                              {message.sender === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                             </AvatarFallback>
                           </Avatar>
 
-                          <div
-                            className={`rounded-lg px-4 py-2 ${
-                              message.sender === "user"
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-100 text-gray-900"
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap">
-                              {message.content}
-                            </p>
+                          <div className={`max-w-full overflow-hidden break-words rounded-lg px-4 py-3 ${
+                            message.sender === "user"
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-900"
+                          }`}>
+                            {message.sender === "ai" ? (
+                              <div className="prose prose-sm max-w-none text-sm leading-relaxed
+                                [&>p]:mb-2 [&>p:last-child]:mb-0
+                                [&>ul]:mt-1 [&>ul]:mb-2 [&>ul]:pl-4 [&>ul>li]:mb-0.5 [&>ul>li]:list-disc
+                                [&>ol]:mt-1 [&>ol]:mb-2 [&>ol]:pl-4 [&>ol>li]:mb-0.5 [&>ol>li]:list-decimal
+                                [&_strong]:font-semibold
+                                [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-1
+                                [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-1
+                                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1">
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+                            )}
 
-                            {/* College Cards */}
-                            {message.colleges &&
-                              message.colleges.length > 0 && (
-                                <div className="mt-4 space-y-3">
-                                  {message.colleges.map((college) => (
-                                    <Card key={college.id} className="bg-white">
-                                      <CardContent className="p-4">
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <h4 className="font-semibold text-gray-900">
-                                              {college.name}
-                                            </h4>
-                                            <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                              <div className="flex items-center">
-                                                <MapPin className="h-3 w-3 mr-1" />
-                                                {college.location}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <BookOpen className="h-3 w-3 mr-1" />
-                                                {college.type}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <DollarSign className="h-3 w-3 mr-1" />
-                                                {college.tuition}
-                                              </div>
-                                              <div className="flex items-center">
-                                                <Users className="h-3 w-3 mr-1" />
-                                                Acceptance Rate:{" "}
-                                                {college.acceptanceRate}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center space-x-1">
-                                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                            <span className="text-sm font-medium">
-                                              #{college.ranking}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <Button
-                                          size="sm"
-                                          className="mt-3 w-full"
-                                        >
-                                          Learn More
-                                        </Button>
-                                      </CardContent>
-                                    </Card>
+                            {message.sources && message.sources.length > 0 && (
+                              <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fresh official site notes</p>
+                                <div className="mt-2 space-y-2">
+                                  {message.sources.map((source) => (
+                                    <div key={`${source.url}-${source.title}`} className="text-xs text-gray-600">
+                                      <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-medium text-blue-600 hover:text-blue-800"
+                                      >
+                                        {source.title}
+                                      </a>
+                                      <p className="mt-1 leading-relaxed">{source.note}</p>
+                                    </div>
                                   ))}
                                 </div>
-                              )}
+                              </div>
+                            )}
+
+                            {message.colleges && message.colleges.length > 0 && (
+                              <div className="mt-4 space-y-3">
+                                {message.colleges.map((college) => (
+                                  <Card key={college.id} className="bg-white border shadow-sm">
+                                    <CardContent className="p-4">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <h4 className="font-semibold text-gray-900 flex items-center gap-1">
+                                            {college.name}
+                                            <a
+                                              href={college.website}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800"
+                                              title={`Visit ${college.name} website`}
+                                              aria-label={`Visit ${college.name} website`}
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                              <span className="sr-only">Visit {college.name} website</span>
+                                            </a>
+                                          </h4>
+                                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                              <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                                              {college.location}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <BookOpen className="h-3 w-3 mr-1 shrink-0" />
+                                              {college.type}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <DollarSign className="h-3 w-3 mr-1 shrink-0" />
+                                              {college.tuition}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <Users className="h-3 w-3 mr-1 shrink-0" />
+                                              Acceptance: {college.acceptanceRate} | Graduation: {college.graduationRate}%
+                                            </div>
+                                            {college.avgGPA > 0 && (
+                                              <div className="flex items-center">
+                                                <TrendingUp className="h-3 w-3 mr-1 shrink-0" />
+                                                Avg GPA: {college.avgGPA} | Aid: {college.financialAidPercent}% of students
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {college.majors.slice(0, 4).map(m => (
+                                              <Badge key={m} variant="secondary" className="text-xs">{m}</Badge>
+                                            ))}
+                                            {college.majors.length > 4 && (
+                                              <Badge variant="secondary" className="text-xs">+{college.majors.length - 4} more</Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col items-center ml-3">
+                                          <div className="flex items-center space-x-1">
+                                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                            <span className="text-sm font-medium">#{college.ranking}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <p className="mt-2 text-xs text-gray-500">{college.description}</p>
+                                      <Button
+                                        size="sm"
+                                        variant={savedCollegeIds.has(college.id) ? "secondary" : "outline"}
+                                        className="mt-3 text-xs"
+                                        onClick={() => handleAddToMyPlan(college)}
+                                        disabled={savedCollegeIds.has(college.id)}
+                                      >
+                                        {savedCollegeIds.has(college.id) ? "✓ In My Plan" : "+ Add to My Plan"}
+                                      </Button>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Follow-up question chips */}
+                            {message.sender === "ai" && message.followUpQuestions && message.followUpQuestions.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {message.followUpQuestions.slice(0, 3).map((q) => (
+                                  <button
+                                    key={q}
+                                    type="button"
+                                    onClick={() => {
+                                      setInputMessage(q);
+                                      // Focus the input after setting
+                                      setTimeout(() => {
+                                        const input = document.querySelector<HTMLInputElement>('input[placeholder*="Try:"]');
+                                        input?.focus();
+                                      }, 50);
+                                    }}
+                                    className="text-xs bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 rounded-full px-3 py-1.5 transition-colors text-left"
+                                  >
+                                    {q}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </motion.div>
                     ))}
 
                     {isTyping && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex justify-start"
-                      >
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                         <div className="flex space-x-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              <Bot className="h-4 w-4" />
-                            </AvatarFallback>
+                            <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
                           </Avatar>
-                          <div className="bg-gray-100 rounded-lg px-4 py-2">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-100" />
-                              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-200" />
+                          <div className="bg-gray-100 rounded-lg px-4 py-3">
+                            <div className="flex space-x-1 items-center">
+                              <Sparkles className="h-3 w-3 text-blue-600 animate-pulse mr-1" />
+                              <span className="text-xs text-gray-500 mr-2">Researching your options...</span>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-100" />
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
                             </div>
                           </div>
                         </div>
                       </motion.div>
                     )}
 
-                    <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
 
                 <Separator className="my-4" />
 
-                {/* Message Input */}
                 <div className="flex space-x-2">
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask me about colleges, admissions, or anything related to your education..."
-                    onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder='Try: "I need affordable nursing schools with strong support and clean transfer paths"'
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                     disabled={isTyping}
                   />
-                  <Button
-                    onClick={sendMessage}
-                    disabled={isTyping || !inputMessage.trim()}
-                  >
+                  <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim()}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
@@ -617,6 +1112,125 @@ NY has world-class universities like Columbia, NYU, Cornell, plus excellent SUNY
           </div>
         </div>
       </div>
+
+      <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Complete Your Student Profile</DialogTitle>
+            <DialogDescription>
+              Add a username and your academic preferences so EduGuide can give better matches.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="dashboard-username">Username</Label>
+              <Input
+                id="dashboard-username"
+                value={profileForm.username}
+                onChange={(e) =>
+                  setProfileForm((prev) => ({
+                    ...prev,
+                    username: e.target.value.replace(/\s+/g, ""),
+                  }))
+                }
+                placeholder="e.g. collin_edu"
+                autoComplete="username"
+                maxLength={30}
+              />
+              <p className="text-xs text-gray-500">
+                3-30 characters. Use letters, numbers, and underscores.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-gpa">GPA</Label>
+                <Input
+                  id="dashboard-gpa"
+                  value={profileForm.gpa}
+                  onChange={(e) => setProfileForm((prev) => ({ ...prev, gpa: e.target.value }))}
+                  placeholder="3.2"
+                  inputMode="decimal"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-state">Preferred State</Label>
+                <Input
+                  id="dashboard-state"
+                  value={profileForm.state}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      state: e.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="CA"
+                  maxLength={20}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dashboard-major">Intended Major</Label>
+              <Input
+                id="dashboard-major"
+                value={profileForm.intendedMajor}
+                onChange={(e) =>
+                  setProfileForm((prev) => ({
+                    ...prev,
+                    intendedMajor: e.target.value,
+                  }))
+                }
+                placeholder="Computer Science"
+                maxLength={80}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dashboard-budget">Budget Preference</Label>
+              <select
+                id="dashboard-budget"
+                value={profileForm.budget}
+                onChange={(e) =>
+                  setProfileForm((prev) => ({
+                    ...prev,
+                    budget: e.target.value as ProfileCompletionFormState["budget"],
+                  }))
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select budget</option>
+                <option value="low">Low / Affordable</option>
+                <option value="medium">Medium</option>
+                <option value="high">High / Flexible</option>
+              </select>
+            </div>
+
+            {profileDialogError && (
+              <p className="text-sm text-red-600">{profileDialogError}</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsProfileDialogOpen(false)}
+              disabled={isSavingProfileDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={saveProfileCompletionDialog}
+              disabled={isSavingProfileDialog}
+            >
+              {isSavingProfileDialog ? "Saving..." : "Save Profile Details"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

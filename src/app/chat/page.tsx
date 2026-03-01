@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
  */
 export default function ChatPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -42,12 +42,12 @@ export default function ChatPage() {
           className="text-center mb-16"
         >
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            AI Assistant
-            <span className="block text-blue-600">Your Personal College Guide</span>
+            Research-Backed AI
+            <span className="block text-blue-600">Your Personal College and Study Guide</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Chat with our intelligent assistant to get personalized college recommendations and academic advice.
-            If you're not logged in, you can try the demo chat. Logged in users get access to the full dashboard.
+            Chat with an inquisitive assistant that matches schools to your profile, checks official school information, and helps with academic planning.
+            Logged-in students also unlock free assignment support: prompt breakdowns, explanations, outlines, and draft feedback.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/demo">
@@ -78,7 +78,7 @@ export default function ChatPage() {
               <CardDescription>No login required</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">Experience our AI assistant with a free demo chat. Ask questions about colleges, admissions, and academic planning.</p>
+              <p className="text-gray-600 mb-4">Experience the AI with a free demo chat. Ask about colleges, admissions, budget, school fit, and shortlist strategy.</p>
               <Link href="/demo">
                 <Button variant="outline" className="w-full">Start Demo Chat</Button>
               </Link>
@@ -91,7 +91,7 @@ export default function ChatPage() {
               <CardDescription>For registered users</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">Sign in to access your personal dashboard with full AI assistant capabilities and personalized recommendations.</p>
+              <p className="text-gray-600 mb-4">Sign in for full AI support, saved school research, personalized recommendations, and free assignment help built around your actual coursework.</p>
               <Link href="/dashboard">
                 <Button className="w-full">Go to Dashboard</Button>
               </Link>

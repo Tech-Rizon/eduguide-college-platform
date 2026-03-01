@@ -12,6 +12,7 @@ import { Form, FormField, FormItem, FormLabel, FormMessage, FormControl } from "
 import { useState } from "react";
 import { GraduationCap, ArrowLeft, Mail, Phone } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
 
 // Define a simple validation schema for the contact form
 const contactSchema = z.object({
@@ -25,11 +26,11 @@ type ContactForm = z.infer<typeof contactSchema>;
 /**
  * Contact page
  *
- * Contains a basic contact form for users to reach out. The form currently does not send data to a backend;
- * it simply resets after submission and logs to the console. In a real application, you would wire this up
- * to an API endpoint or email service.
+ * Submissions are persisted to support_requests through /api/contact and
+ * optionally emailed via SendGrid when configured.
  */
 export default function ContactPage() {
+  const { user } = useAuth();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const form = useForm<ContactForm>({
     resolver: zodResolver(contactSchema),
@@ -45,7 +46,11 @@ export default function ContactPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          userId: user?.id ?? null,
+          priority: "medium",
+        }),
       });
 
       if (res.ok) {
@@ -69,7 +74,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -124,7 +129,7 @@ export default function ContactPage() {
               <CardTitle>Phone</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">(555) 123-4567</p>
+              <p className="text-gray-600">(509) 934-4590</p>
               <p className="text-sm text-gray-500 mt-2">Mon-Fri 9am-5pm EST</p>
             </CardContent>
           </Card>

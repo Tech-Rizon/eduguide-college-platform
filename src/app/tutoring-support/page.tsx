@@ -29,7 +29,6 @@ import {
   Calendar,
   Award,
   Briefcase,
-  Upload,
   AlertCircle
 } from "lucide-react";
 import Link from "next/link";
@@ -37,11 +36,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
 
+// Subject value → API category mapping
+const SUBJECT_CATEGORY_MAP: Record<string, string> = {
+  mathematics: "general",
+  science: "general",
+  english: "general",
+  history: "general",
+  computer_science: "general",
+  business: "general",
+  college_prep: "college_guidance",
+  test_prep: "test_prep",
+  other: "general",
+};
+
 const requestSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be under 2000 characters"),
   priority: z.enum(["low", "medium", "high"]),
-  file_url: z.string().optional(),
 });
 
 type RequestForm = z.infer<typeof requestSchema>;
@@ -92,7 +103,6 @@ function TutoringSupportPage() {
       subject: "",
       description: "",
       priority: "medium",
-      file_url: "",
     },
   });
 
@@ -104,34 +114,43 @@ function TutoringSupportPage() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('tutoring_requests')
-        .insert({
-          user_id: user.id,
-          subject: data.subject,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Session expired. Please log in again.");
+
+      const subjectLabel = subjects.find((s) => s.value === data.subject)?.label ?? data.subject;
+      const category = SUBJECT_CATEGORY_MAP[data.subject] ?? "general";
+
+      const res = await fetch("/api/tutoring-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          category,
+          subject: subjectLabel,
           description: data.description,
           priority: data.priority,
-          file_url: data.file_url || null,
-          status: 'pending'
-        });
+        }),
+      });
 
-      if (error) {
-        throw error;
-      }
+      const payload = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(payload.error || "Failed to submit request");
 
       setIsSubmitted(true);
       toast.success("Your tutoring request has been submitted successfully!");
       form.reset();
-    } catch (error: any) {
-      console.error('Request submission error:', error);
-      toast.error("Failed to submit request. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to submit request. Please try again.";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -177,16 +196,16 @@ function TutoringSupportPage() {
           >
             <h2 className="text-2xl font-bold text-gray-900 mb-6">What We Offer</h2>
             <div className="space-y-6">
-              {services.map((service, index) => (
-                <Card key={index} className="hover:shadow-md transition-shadow">
+              {services.map((service) => (
+                <Card key={service.title} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <CardTitle className="text-lg">{service.title}</CardTitle>
                     <CardDescription>{service.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {service.features.map((feature, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                      {service.features.map((feature) => (
+                        <Badge key={feature} variant="secondary" className="text-xs">
                           {feature}
                         </Badge>
                       ))}
@@ -309,23 +328,6 @@ function TutoringSupportPage() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="file_url"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Supporting Documents (Optional)</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Paste a link to your assignment, notes, or other helpful documents"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <Alert>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
@@ -351,7 +353,7 @@ function TutoringSupportPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="mt-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center text-white"
+          className="mt-16 bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center text-white"
         >
           <h2 className="text-2xl font-bold mb-4">Need Immediate Help?</h2>
           <p className="text-lg mb-6 opacity-90">
