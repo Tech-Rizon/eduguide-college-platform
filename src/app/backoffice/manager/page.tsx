@@ -216,6 +216,23 @@ export default function ManagerDashboardPage() {
 
   const tutors = useMemo(() => staff.filter((u) => u.staffLevel === "tutor"), [staff]);
   const supportAgents = useMemo(() => staff.filter((u) => u.staffLevel === "support"), [staff]);
+  const staffEmailByUserId = useMemo(
+    () => new Map(staff.map((member) => [member.userId, member.email ?? member.userId])),
+    [staff]
+  );
+  const autoAssignWarnings = useMemo(() => {
+    const warnings: string[] = [];
+
+    if (supportAgents.length === 0) {
+      warnings.push("No support staff accounts are currently available for support-ticket auto-assignment.");
+    }
+
+    if (tutors.length === 0) {
+      warnings.push("No tutor staff accounts are currently available for tutoring-ticket auto-assignment.");
+    }
+
+    return warnings;
+  }, [supportAgents.length, tutors.length]);
 
   const changeAssignedTeam = (ticketId: string, team: "tutor" | "support") => {
     const pool = team === "tutor" ? tutors : supportAgents;
@@ -284,6 +301,7 @@ export default function ManagerDashboardPage() {
       title="Manager Operations Dashboard"
       subtitle="Review all incoming tickets, track auto-assignments, and override routing when needed."
       levelLabel="MANAGER"
+      staffLevel="manager"
     >
       {/* View switcher */}
       <div className="flex gap-2">
@@ -470,6 +488,30 @@ export default function ManagerDashboardPage() {
         </CardContent>
       </Card>
 
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle>Auto-Assignment Health</CardTitle>
+          <CardDescription className="text-slate-400">
+            New tickets route to the least-loaded matching staff member when at least one eligible user exists for that team.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="text-slate-300">
+            Coverage: <span className="text-slate-100">{supportAgents.length} support</span> and{" "}
+            <span className="text-slate-100">{tutors.length} tutors</span>.
+          </p>
+          {autoAssignWarnings.length === 0 ? (
+            <p className="text-emerald-300">Matching staff coverage exists for both auto-assigned teams.</p>
+          ) : (
+            autoAssignWarnings.map((warning) => (
+              <p key={warning} className="text-amber-300">
+                {warning}
+              </p>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
       {/* Ticket list */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
@@ -486,6 +528,13 @@ export default function ManagerDashboardPage() {
             };
             const candidatePool = assignment.assignedTeam === "tutor" ? tutors : supportAgents;
             const autoAssigned = Boolean(ticket.assigned_to_user_id);
+            const assignedEmail = ticket.assigned_to_user_id
+              ? staffEmailByUserId.get(ticket.assigned_to_user_id) ?? ticket.assigned_to_user_id
+              : null;
+            const lacksCoverage =
+              !ticket.assigned_to_user_id &&
+              ((ticket.assigned_team === "support" && supportAgents.length === 0) ||
+                (ticket.assigned_team === "tutor" && tutors.length === 0));
 
             return (
               <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3">
@@ -510,6 +559,17 @@ export default function ManagerDashboardPage() {
                     {ticket.description && (
                       <p className="text-sm text-slate-300 mt-2 line-clamp-2">{ticket.description}</p>
                     )}
+                    <p className="mt-2 text-xs text-slate-300">
+                      {assignedEmail ? `Assigned to ${assignedEmail}` : "Awaiting assignment"}{" "}
+                      {ticket.assigned_team ? `· ${ticket.assigned_team} team` : "· team not set"}
+                    </p>
+                    {!assignedEmail && (
+                      <p className={`mt-1 text-xs ${lacksCoverage ? "text-amber-300" : "text-slate-400"}`}>
+                        {lacksCoverage
+                          ? `No ${ticket.assigned_team} staff users are currently available for auto-assignment.`
+                          : "Waiting for auto-assignment or a manager override."}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <Badge className={PRIORITY_BADGE_CLASSES[ticket.priority] ?? PRIORITY_BADGE_CLASSES.medium}>
@@ -526,7 +586,7 @@ export default function ManagerDashboardPage() {
                     value={assignment.assignedTeam}
                     onValueChange={(value) => changeAssignedTeam(ticket.id, value as "tutor" | "support")}
                   >
-                    <SelectTrigger className="bg-slate-900 border-slate-700">
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-100">
                       <SelectValue placeholder="Team" />
                     </SelectTrigger>
                     <SelectContent>
@@ -542,7 +602,7 @@ export default function ManagerDashboardPage() {
                       changeAssignee(ticket.id, value);
                     }}
                   >
-                    <SelectTrigger className="bg-slate-900 border-slate-700">
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-100">
                       <SelectValue placeholder="Assignee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -564,7 +624,7 @@ export default function ManagerDashboardPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-slate-700 bg-transparent hover:bg-slate-700"
+                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
                     onClick={() => setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))}
                   >
                     {openThreadTicketId === ticket.id ? "Hide Thread" : "Open Thread"}

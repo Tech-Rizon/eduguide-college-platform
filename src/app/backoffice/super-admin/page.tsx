@@ -217,6 +217,12 @@ export default function SuperAdminDashboardPage() {
   const unassignedCount = useMemo(() => tickets.filter((t) => !t.assigned_to_user_id).length, [tickets]);
   const urgentCount = useMemo(() => tickets.filter((t) => t.priority === "urgent").length, [tickets]);
   const superAdminCount = useMemo(() => staff.filter((m) => m.staffLevel === "super_admin").length, [staff]);
+  const supportCount = useMemo(() => staff.filter((m) => m.staffLevel === "support").length, [staff]);
+  const tutorCount = useMemo(() => staff.filter((m) => m.staffLevel === "tutor").length, [staff]);
+  const staffEmailByUserId = useMemo(
+    () => new Map(staff.map((member) => [member.userId, member.email ?? member.userId])),
+    [staff]
+  );
   const breachedCount = useMemo(() => {
     const now = Date.now();
     return tickets.filter((t) => {
@@ -239,6 +245,7 @@ export default function SuperAdminDashboardPage() {
       title="Super Admin Control Center"
       subtitle="Control role governance, private dashboard access, and enterprise backoffice operations."
       levelLabel="SUPER ADMIN"
+      staffLevel="super_admin"
     >
       {/* View switcher */}
       <div className="flex gap-2">
@@ -381,7 +388,7 @@ export default function SuperAdminDashboardPage() {
             className="bg-slate-800 border-slate-700 text-slate-100 sm:col-span-2"
           />
           <Select value={targetLevel} onValueChange={(v) => setTargetLevel(v as "tutor" | "support" | "manager" | "super_admin")}>
-            <SelectTrigger className="bg-slate-800 border-slate-700">
+            <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-100">
               <SelectValue placeholder="Role level" />
             </SelectTrigger>
             <SelectContent>
@@ -423,6 +430,30 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle>Auto-Assignment Health</CardTitle>
+          <CardDescription className="text-slate-400">
+            New tickets route to the least-loaded matching tutor or support user when coverage exists for that team.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="text-slate-300">
+            Coverage: <span className="text-slate-100">{supportCount} support</span> and{" "}
+            <span className="text-slate-100">{tutorCount} tutors</span>.
+          </p>
+          {supportCount === 0 && (
+            <p className="text-amber-300">Support tickets cannot auto-assign until at least one support staff role exists.</p>
+          )}
+          {tutorCount === 0 && (
+            <p className="text-amber-300">Tutoring tickets cannot auto-assign until at least one tutor staff role exists.</p>
+          )}
+          {supportCount > 0 && tutorCount > 0 && (
+            <p className="text-emerald-300">Matching staff coverage exists for both auto-assigned teams.</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Ticket Intake */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
@@ -452,7 +483,7 @@ export default function SuperAdminDashboardPage() {
                 variant="outline"
                 onClick={loadData}
                 disabled={loadingData}
-                className="border-slate-700 bg-transparent hover:bg-slate-800"
+                className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100"
               >
                 {loadingData ? "..." : "↺"}
               </Button>
@@ -460,54 +491,75 @@ export default function SuperAdminDashboardPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {filteredTickets.slice(0, 20).map((ticket) => (
-            <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{ticket.title}</p>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
-                    <span className="text-xs text-slate-400">{formatRelativeTime(ticket.created_at)}</span>
-                    {ticket.requester_email && (
-                      <>
-                        <span className="text-slate-600 text-xs">&middot;</span>
-                        <a href={`mailto:${ticket.requester_email}`} className="text-xs text-slate-400 hover:underline">
-                          {ticket.requester_email}
-                        </a>
-                      </>
+          {filteredTickets.slice(0, 20).map((ticket) => {
+            const assignedEmail = ticket.assigned_to_user_id
+              ? staffEmailByUserId.get(ticket.assigned_to_user_id) ?? ticket.assigned_to_user_id
+              : null;
+            const lacksCoverage =
+              !ticket.assigned_to_user_id &&
+              ((ticket.assigned_team === "support" && supportCount === 0) ||
+                (ticket.assigned_team === "tutor" && tutorCount === 0));
+
+            return (
+              <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{ticket.title}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+                      <span className="text-xs text-slate-400">{formatRelativeTime(ticket.created_at)}</span>
+                      {ticket.requester_email && (
+                        <>
+                          <span className="text-slate-600 text-xs">&middot;</span>
+                          <a href={`mailto:${ticket.requester_email}`} className="text-xs text-slate-400 hover:underline">
+                            {ticket.requester_email}
+                          </a>
+                        </>
+                      )}
+                      <SlaChip ticket={ticket} />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-300">
+                      {assignedEmail ? `Assigned to ${assignedEmail}` : "Awaiting assignment"}{" "}
+                      {ticket.assigned_team ? `· ${ticket.assigned_team} team` : "· team not set"}
+                    </p>
+                    {!assignedEmail && (
+                      <p className={`mt-1 text-xs ${lacksCoverage ? "text-amber-300" : "text-slate-400"}`}>
+                        {lacksCoverage
+                          ? `No ${ticket.assigned_team} staff users are currently available for auto-assignment.`
+                          : "Waiting for auto-assignment or manager override."}
+                      </p>
                     )}
-                    <SlaChip ticket={ticket} />
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <Badge className={PRIORITY_BADGE_CLASSES[ticket.priority] ?? PRIORITY_BADGE_CLASSES.medium}>
+                      {ticket.priority.toUpperCase()}
+                    </Badge>
+                    <Badge className={STATUS_BADGE_CLASSES[ticket.status] ?? "bg-slate-500/20 text-slate-300"}>
+                      {ticket.status.replace(/_/g, " ")}
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <Badge className={PRIORITY_BADGE_CLASSES[ticket.priority] ?? PRIORITY_BADGE_CLASSES.medium}>
-                    {ticket.priority.toUpperCase()}
-                  </Badge>
-                  <Badge className={STATUS_BADGE_CLASSES[ticket.status] ?? "bg-slate-500/20 text-slate-300"}>
-                    {ticket.status.replace(/_/g, " ")}
-                  </Badge>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+                    onClick={() => setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))}
+                  >
+                    {openThreadTicketId === ticket.id ? "Hide Thread" : "Open Thread"}
+                  </Button>
                 </div>
-              </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-slate-700 bg-transparent hover:bg-slate-700"
-                  onClick={() => setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))}
-                >
-                  {openThreadTicketId === ticket.id ? "Hide Thread" : "Open Thread"}
-                </Button>
+                {openThreadTicketId === ticket.id && (
+                  <TicketThreadPanel
+                    ticketId={ticket.id}
+                    accessToken={session?.access_token}
+                    canAddInternalNotes={true}
+                  />
+                )}
               </div>
-
-              {openThreadTicketId === ticket.id && (
-                <TicketThreadPanel
-                  ticketId={ticket.id}
-                  accessToken={session?.access_token}
-                  canAddInternalNotes={true}
-                />
-              )}
-            </div>
-          ))}
+            );
+          })}
           {!loadingData && filteredTickets.length === 0 && (
             <p className="text-sm text-slate-400">No tickets match the current filter.</p>
           )}

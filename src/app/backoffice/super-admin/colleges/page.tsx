@@ -198,6 +198,7 @@ export default function SuperAdminCollegeCatalogPage() {
         title="College Catalog"
         subtitle="Super-admin-only catalog controls."
         levelLabel="SUPER ADMIN"
+        staffLevel="super_admin"
       >
         <div className="flex min-h-60 items-center justify-center text-slate-300">
           Loading catalog controls...
@@ -211,6 +212,7 @@ export default function SuperAdminCollegeCatalogPage() {
       title="College Catalog"
       subtitle="Seed, import, and refresh the colleges catalog from a super-admin-only workspace."
       levelLabel="SUPER ADMIN"
+      staffLevel="super_admin"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-slate-400">

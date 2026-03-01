@@ -108,7 +108,7 @@ export default function AdminReferralsPage() {
 
   if (authLoading) {
     return (
-      <BackofficeShell title="Referrals" subtitle="Admin view" levelLabel="super_admin">
+      <BackofficeShell title="Referrals" subtitle="Admin view" levelLabel="SUPER ADMIN" staffLevel="super_admin">
         <div className="flex items-center justify-center h-48 text-slate-400">Loading…</div>
       </BackofficeShell>
     );
@@ -124,7 +124,7 @@ export default function AdminReferralsPage() {
   };
 
   return (
-    <BackofficeShell title="Referrals" subtitle="Admin referral records" levelLabel="super_admin">
+    <BackofficeShell title="Referrals" subtitle="Admin referral records" levelLabel="SUPER ADMIN" staffLevel="super_admin">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -138,11 +138,18 @@ export default function AdminReferralsPage() {
               size="sm"
               onClick={() => exportCsv(rows)}
               disabled={rows.length === 0}
+              className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100"
             >
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              disabled={loading}
+              className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100"
+            >
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>

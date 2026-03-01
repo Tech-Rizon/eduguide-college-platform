@@ -212,7 +212,7 @@ export function TicketQueueDashboard({
   }
 
   return (
-    <BackofficeShell title={title} subtitle={subtitle} levelLabel={levelLabel}>
+    <BackofficeShell title={title} subtitle={subtitle} levelLabel={levelLabel} staffLevel={staffLevel}>
       {/* Stats row */}
       <div className="grid sm:grid-cols-3 gap-4">
         <Card className="bg-slate-900 border-slate-800">
@@ -260,7 +260,7 @@ export function TicketQueueDashboard({
                 variant="outline"
                 onClick={loadTickets}
                 disabled={refreshing}
-                className="border-slate-700 bg-transparent hover:bg-slate-800"
+                className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100"
               >
                 {refreshing ? "Refreshing..." : "Refresh"}
               </Button>
@@ -314,7 +314,7 @@ export function TicketQueueDashboard({
                       setStatusByTicket((prev) => ({ ...prev, [ticket.id]: value }))
                     }
                   >
-                    <SelectTrigger className="bg-slate-900 border-slate-700 sm:col-span-2">
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-100 sm:col-span-2">
                       <SelectValue placeholder="Set status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -338,7 +338,7 @@ export function TicketQueueDashboard({
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-slate-700 bg-transparent hover:bg-slate-700"
+                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
                     onClick={() =>
                       setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))
                     }

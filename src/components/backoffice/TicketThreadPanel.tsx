@@ -259,7 +259,7 @@ export function TicketThreadPanel({
                         key={attachment.id}
                         type="button"
                         variant="outline"
-                        className="border-slate-700 bg-transparent hover:bg-slate-700 text-xs"
+                        className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100 text-xs"
                         onClick={() => openAttachment(attachment.id)}
                       >
                         {attachment.file_name}
@@ -280,7 +280,11 @@ export function TicketThreadPanel({
             <Button
               type="button"
               variant={visibility === "public" ? "default" : "outline"}
-              className={visibility === "public" ? "bg-emerald-600 hover:bg-emerald-500" : "border-slate-700 bg-transparent hover:bg-slate-700"}
+              className={
+                visibility === "public"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                  : "border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+              }
               onClick={() => setVisibility("public")}
             >
               Public Reply
@@ -289,7 +293,11 @@ export function TicketThreadPanel({
               <Button
                 type="button"
                 variant={visibility === "internal" ? "default" : "outline"}
-                className={visibility === "internal" ? "bg-amber-600 hover:bg-amber-500" : "border-slate-700 bg-transparent hover:bg-slate-700"}
+                className={
+                  visibility === "internal"
+                    ? "bg-amber-600 text-white hover:bg-amber-500"
+                    : "border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+                }
                 onClick={() => setVisibility("internal")}
               >
                 Internal Message
@@ -301,15 +309,19 @@ export function TicketThreadPanel({
             placeholder={visibility === "internal" ? "Add internal staff message..." : "Reply to student..."}
             value={publicMessage}
             onChange={(event) => setPublicMessage(event.target.value)}
-            className="bg-slate-900 border-slate-700"
+            className="border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
           />
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               type="file"
               onChange={(event) => setPendingFile(event.target.files?.[0] ?? null)}
-              className="bg-slate-900 border-slate-700"
+              className="border-slate-700 bg-slate-900 text-slate-100 file:mr-3 file:text-slate-100"
             />
-            <Button onClick={sendMessage} disabled={sending || !publicMessage.trim()} className="bg-emerald-600 hover:bg-emerald-500">
+            <Button
+              onClick={sendMessage}
+              disabled={sending || !publicMessage.trim()}
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
               Send
             </Button>
           </div>
@@ -317,7 +329,7 @@ export function TicketThreadPanel({
 
         {canAddInternalNotes && (
           <div className="rounded-md border border-slate-700 bg-slate-800 p-3 space-y-3">
-            <p className="text-sm font-semibold">Internal Notes</p>
+            <p className="text-sm font-semibold text-slate-100">Internal Notes</p>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {notes.map((note) => (
                 <div key={note.id} className="rounded-md border border-slate-700 bg-slate-900 p-3">
@@ -334,9 +346,13 @@ export function TicketThreadPanel({
               placeholder="Add manager/staff note..."
               value={internalNote}
               onChange={(event) => setInternalNote(event.target.value)}
-              className="bg-slate-900 border-slate-700"
+              className="border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
             />
-            <Button onClick={addInternalNote} disabled={sending || !internalNote.trim()} className="bg-amber-600 hover:bg-amber-500">
+            <Button
+              onClick={addInternalNote}
+              disabled={sending || !internalNote.trim()}
+              className="bg-amber-600 text-white hover:bg-amber-500"
+            >
               Add Note
             </Button>
           </div>
