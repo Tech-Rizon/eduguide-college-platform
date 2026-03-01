@@ -3,28 +3,53 @@ import Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
 
+type CheckoutPlanKey = 'basic' | 'premium' | 'elite'
+
+function isCheckoutPlanKey(value: unknown): value is CheckoutPlanKey {
+  return value === 'basic' || value === 'premium' || value === 'elite'
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { priceId, plan, referralCode, userEmail } = body || {}
+    const { priceId, plan, planKey, referralCode, userEmail } = body || {}
 
     const stripeSecret = process.env.STRIPE_SECRET_KEY
     if (!stripeSecret) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 501 })
     }
 
-    if (!priceId || typeof priceId !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid priceId' }, { status: 400 })
+    const configuredPriceIds: Record<CheckoutPlanKey, string | undefined> = {
+      basic: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC,
+      premium: process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM,
+      elite: process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE,
+    }
+    const allowedPriceIds = Object.values(configuredPriceIds).filter(
+      (value): value is string => Boolean(value),
+    )
+
+    if (allowedPriceIds.length === 0) {
+      return NextResponse.json({ error: 'Stripe prices are not configured' }, { status: 501 })
     }
 
-    // Prevent arbitrary client-supplied prices; only allow configured plan prices.
-    const allowedPriceIds = [
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC,
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM,
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE,
-    ].filter((value): value is string => Boolean(value))
+    if (planKey !== undefined && !isCheckoutPlanKey(planKey)) {
+      return NextResponse.json({ error: 'Invalid plan selection' }, { status: 400 })
+    }
 
-    if (allowedPriceIds.length > 0 && !allowedPriceIds.includes(priceId)) {
+    const resolvedPriceId = isCheckoutPlanKey(planKey)
+      ? configuredPriceIds[planKey]
+      : typeof priceId === 'string'
+        ? priceId
+        : undefined
+
+    if (!resolvedPriceId) {
+      return NextResponse.json(
+        { error: 'That subscription plan is not configured yet. Please contact support.' },
+        { status: 501 },
+      )
+    }
+
+    if (!allowedPriceIds.includes(resolvedPriceId)) {
       return NextResponse.json({ error: 'Invalid priceId' }, { status: 400 })
     }
 
@@ -81,7 +106,7 @@ export async function POST(request: Request) {
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: resolvedPriceId, quantity: 1 }],
       mode: 'subscription',
       ...(normalizedUserEmail ? { customer_email: normalizedUserEmail } : {}),
       subscription_data: {
@@ -124,7 +149,7 @@ export async function POST(request: Request) {
           customer_email: normalizedUserEmail,
           user_id: resolvedUserId,
           plan: plan ?? null,
-          price_id: priceId,
+          price_id: resolvedPriceId,
           referral_code: isReferralApplied ? normalizedCode : null,
           status: 'open',
           completed_at: null,

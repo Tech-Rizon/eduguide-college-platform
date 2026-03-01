@@ -132,6 +132,8 @@ const subjects = [
   { name: "Physics & Engineering", icon: <FileText className="h-5 w-5" />, popular: false }
 ];
 
+type CheckoutPlanKey = 'basic' | 'premium' | 'elite';
+
 export default function TutoringPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [checkoutEmail, setCheckoutEmail] = useState('');
@@ -183,18 +185,7 @@ export default function TutoringPage() {
     }
   }, [searchParams]);
 
-  // Read published Stripe Price IDs from environment (set these on Vercel)
-  const BASIC_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC ?? ''
-  const PREMIUM_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM ?? ''
-  const ELITE_PRICE = process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? ''
-
-  // handleCheckout requires a Stripe Price ID for a monthly recurring price.
-  const handleCheckout = async (priceId: string | undefined, planName?: string) => {
-    if (!priceId) {
-      toast.error('Payment not configured. Please contact support.');
-      return;
-    }
-
+  const handleCheckout = async (planKey: CheckoutPlanKey, planName?: string) => {
     if (!resolvedCheckoutEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedCheckoutEmail)) {
       toast.error('Enter a valid email to continue checkout.');
       return;
@@ -202,9 +193,14 @@ export default function TutoringPage() {
 
     try {
       setLoadingPlan(planName ?? null);
-      const payload: { plan?: string; priceId: string; referralCode?: string; userEmail?: string } = {
+      const payload: {
+        plan?: string;
+        planKey: CheckoutPlanKey;
+        referralCode?: string;
+        userEmail?: string;
+      } = {
         plan: planName,
-        priceId,
+        planKey,
         userEmail: resolvedCheckoutEmail,
       };
 
@@ -542,7 +538,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(BASIC_PRICE || undefined, 'Basic Support')}
+                  onClick={() => handleCheckout('basic', 'Basic Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Basic Support'}
                 >
                   {loadingPlan === 'Basic Support' ? 'Processing…' : 'Subscribe — Basic'}
@@ -589,7 +585,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(PREMIUM_PRICE || undefined, 'Premium Support')}
+                  onClick={() => handleCheckout('premium', 'Premium Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Premium Support'}
                 >
                   {loadingPlan === 'Premium Support' ? 'Processing…' : 'Subscribe — Premium'}
@@ -633,7 +629,7 @@ export default function TutoringPage() {
                 </ul>
                 <Button
                   className="w-full mt-6"
-                  onClick={() => handleCheckout(ELITE_PRICE || undefined, 'Elite Support')}
+                  onClick={() => handleCheckout('elite', 'Elite Support')}
                   disabled={loadingPlan !== null && loadingPlan !== 'Elite Support'}
                 >
                   {loadingPlan === 'Elite Support' ? 'Processing…' : 'Subscribe — Elite'}
