@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,8 @@ import {
   X
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { collegeDatabase, getStates, getCollegeTypes, type CollegeEntry } from "@/lib/collegeDatabase";
+import type { CollegeEntry } from "@/lib/collegeDatabase";
+import { COLLEGE_TYPES, US_STATE_CODES } from "@/lib/collegeCatalog";
 
 function openLiveAdvisor(message: string) {
   if (typeof window === "undefined") return;
@@ -44,41 +45,54 @@ export default function CollegesPage() {
   const [maxTuition, setMaxTuition] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [savedCollegeIds, setSavedCollegeIds] = useState<string[]>([]);
+  const [catalogColleges, setCatalogColleges] = useState<CollegeEntry[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
-  const states = getStates();
-  const types = getCollegeTypes();
+  const states = US_STATE_CODES;
+  const types = COLLEGE_TYPES;
 
-  const filteredColleges = useMemo(() => {
-    let results = [...collegeDatabase];
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      setCatalogLoading(true);
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      results = results.filter(c =>
-        c.name.toLowerCase().includes(query) ||
-        c.city.toLowerCase().includes(query) ||
-        c.state.toLowerCase().includes(query) ||
-        c.description.toLowerCase().includes(query) ||
-        c.majors.some(m => m.toLowerCase().includes(query)) ||
-        c.tags.some(t => t.includes(query))
-      );
-    }
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.set("query", searchQuery.trim());
+      if (selectedState) params.set("state", selectedState);
+      if (selectedType) params.set("type", selectedType);
+      if (maxTuition) params.set("maxTuition", maxTuition);
+      params.set("limit", "48");
 
-    if (selectedState) {
-      results = results.filter(c => c.state === selectedState);
-    }
+      try {
+        const response = await fetch(`/api/colleges?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => null);
 
-    if (selectedType) {
-      results = results.filter(c => c.type === selectedType);
-    }
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Failed to load colleges.");
+        }
 
-    if (maxTuition) {
-      const max = Number.parseInt(maxTuition);
-      if (!Number.isNaN(max)) {
-        results = results.filter(c => c.tuitionInState <= max);
+        setCatalogColleges(payload?.colleges ?? []);
+        setCatalogTotal(typeof payload?.total === "number" ? payload.total : 0);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("College catalog load failed:", error);
+        setCatalogColleges([]);
+        setCatalogTotal(0);
+      } finally {
+        if (!controller.signal.aborted) {
+          setCatalogLoading(false);
+        }
       }
-    }
+    }, 150);
 
-    return results.sort((a, b) => a.ranking - b.ranking);
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [searchQuery, selectedState, selectedType, maxTuition]);
 
   const clearFilters = () => {
@@ -129,7 +143,7 @@ export default function CollegesPage() {
             College Discovery
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Explore {collegeDatabase.length} colleges and universities. Filter by location, type, budget, and more.
+            Explore {catalogTotal.toLocaleString()} colleges and universities. Filter by location, type, budget, and more.
           </p>
           <p className="text-sm text-gray-500 mt-2">
             Save schools as you browse, then ask a live advisor about fit, costs, and deadlines.
@@ -217,7 +231,11 @@ export default function CollegesPage() {
           )}
 
           <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>Showing {filteredColleges.length} of {collegeDatabase.length} colleges</span>
+            <span>
+              {catalogLoading
+                ? "Loading catalog..."
+                : `Showing ${catalogColleges.length} of ${catalogTotal.toLocaleString()} colleges`}
+            </span>
             {hasActiveFilters && (
               <div className="flex gap-2">
                 {selectedState && <Badge variant="secondary">{selectedState}</Badge>}
@@ -230,7 +248,7 @@ export default function CollegesPage() {
 
         {/* Results */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredColleges.map((college, index) => (
+          {catalogColleges.map((college, index) => (
             <motion.div
               key={college.id}
               initial={{ opacity: 0, y: 20 }}
@@ -251,7 +269,7 @@ export default function CollegesPage() {
           ))}
         </div>
 
-        {filteredColleges.length === 0 && (
+        {!catalogLoading && catalogColleges.length === 0 && (
           <div className="text-center py-16">
             <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">No colleges found</h3>

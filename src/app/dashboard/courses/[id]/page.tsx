@@ -489,6 +489,8 @@ export default function CourseDetailPage() {
                     accept=".pdf,application/pdf"
                     className="hidden"
                     onChange={handleFileUpload}
+                    title="Upload a PDF file"
+                    aria-label="Upload PDF file"
                   />
                   <Button
                     className="w-full"
@@ -809,6 +811,7 @@ export default function CourseDetailPage() {
                       id="note-doc"
                       value={noteDocumentId}
                       onChange={(e) => setNoteDocumentId(e.target.value)}
+                      aria-label="Limit to document"
                       className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="">All documents</option>

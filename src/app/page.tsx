@@ -76,7 +76,7 @@ export default function HomePage() {
             className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto"
           >
             Get AI-powered college recommendations based on your GPA, location, and goals. Discover the perfect school
-            from our database of 40+ institutions across the US.
+            from our database of 40,000+ institutions across the US.
           </motion.p>
 
           <motion.div
