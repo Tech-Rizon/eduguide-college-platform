@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   const userId = userData.user.id
 
-  let body: { collegeId?: unknown; collegeName?: unknown }
+  let body: { collegeId?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -42,15 +42,12 @@ export async function POST(request: Request) {
   }
 
   const collegeId = typeof body.collegeId === 'string' ? body.collegeId.trim() : ''
-  const collegeName = typeof body.collegeName === 'string' ? body.collegeName.trim() : ''
-
-  if (!collegeId || !collegeName) {
-    return NextResponse.json({ error: 'Missing collegeId or collegeName' }, { status: 400 })
+  if (!collegeId) {
+    return NextResponse.json({ error: 'Missing collegeId' }, { status: 400 })
   }
 
-  // Server-side validation: college must exist in static database
-  const { collegeDatabase } = await import('@/lib/collegeDatabase')
-  const college = collegeDatabase.find((c) => c.id === collegeId)
+  const { findCollegeCatalogEntryById } = await import('@/lib/collegeCatalogServer')
+  const college = await findCollegeCatalogEntryById(collegeId)
   if (!college) {
     return NextResponse.json({ error: 'College not found' }, { status: 404 })
   }
@@ -58,7 +55,7 @@ export async function POST(request: Request) {
   // Insert into shortlist
   const { data: shortlistRow, error: insertError } = await sb
     .from('college_shortlist')
-    .insert({ user_id: userId, college_id: collegeId, college_name: collegeName })
+    .insert({ user_id: userId, college_id: college.id, college_name: college.name })
     .select('id')
     .single()
 
@@ -73,7 +70,7 @@ export async function POST(request: Request) {
   // Auto-insert standard checklist tasks (ignore duplicates)
   const checklistRows = STANDARD_CHECKLIST_TASKS.map((task) => ({
     user_id: userId,
-    college_id: collegeId,
+    college_id: college.id,
     task,
   }))
 

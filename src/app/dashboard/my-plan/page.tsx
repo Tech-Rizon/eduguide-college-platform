@@ -27,7 +27,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { collegeDatabase, type CollegeEntry } from "@/lib/collegeDatabase";
+import type { CollegeEntry } from "@/lib/collegeDatabase";
 
 interface ShortlistItem {
   id: string;
@@ -86,6 +86,7 @@ export default function MyPlanPage() {
   const [activeTab, setActiveTab] = useState<"list" | "tracker">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CollegeEntry[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [trackerFilter, setTrackerFilter] = useState("all");
   const [addingCollegeId, setAddingCollegeId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -114,24 +115,52 @@ export default function MyPlanPage() {
     fetchPlan(session.access_token);
   }, [authLoading, session, router, fetchPlan]);
 
-  // Client-side college search
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setIsSearchLoading(false);
       return;
     }
-    const q = searchQuery.trim().toLowerCase();
-    const results = collegeDatabase
-      .filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.location.toLowerCase().includes(q) ||
-          c.state.toLowerCase().includes(q) ||
-          c.city.toLowerCase().includes(q),
-      )
-      .filter((c) => !shortlist.some((s) => s.college_id === c.id))
-      .slice(0, 8);
-    setSearchResults(results);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      setIsSearchLoading(true);
+
+      try {
+        const params = new URLSearchParams({
+          query: searchQuery.trim(),
+          limit: "8",
+        });
+        const response = await fetch(`/api/colleges?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Failed to search colleges.");
+        }
+
+        const results = ((payload?.colleges ?? []) as CollegeEntry[]).filter(
+          (college) => !shortlist.some((item) => item.college_id === college.id)
+        );
+        setSearchResults(results);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("College search failed:", error);
+          setSearchResults([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearchLoading(false);
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [searchQuery, shortlist]);
 
   // Close search dropdown on outside click
@@ -317,6 +346,11 @@ export default function MyPlanPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-white border-gray-200"
             />
+            {isSearchLoading && (
+              <p className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                Searching...
+              </p>
+            )}
             {searchResults.length > 0 && (
               <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
                 {searchResults.map((college) => (

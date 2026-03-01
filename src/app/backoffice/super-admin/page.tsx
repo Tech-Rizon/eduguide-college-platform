@@ -514,22 +514,42 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Referral Program Admin */}
-      <Card className="bg-slate-800/60 border-slate-700/50">
-        <CardHeader>
-          <CardTitle className="text-slate-100 text-base">Referral Program</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <a href="/backoffice/super-admin/referrals">
-            <button
-              type="button"
-              className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
-            >
-              View Referral Records →
-            </button>
-          </a>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="bg-slate-800/60 border-slate-700/50">
+          <CardHeader>
+            <CardTitle className="text-slate-100 text-base">Referral Program</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <a href="/backoffice/super-admin/referrals">
+              <button
+                type="button"
+                className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                View Referral Records
+              </button>
+            </a>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/60 border-slate-700/50">
+          <CardHeader>
+            <CardTitle className="text-slate-100 text-base">College Catalog</CardTitle>
+            <CardDescription className="text-slate-400">
+              Seed and refresh the database-backed college catalog.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <a href="/backoffice/super-admin/colleges">
+              <button
+                type="button"
+                className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                Manage College Catalog
+              </button>
+            </a>
+          </CardContent>
+        </Card>
+      </div>
       </>
       )}
     </BackofficeShell>

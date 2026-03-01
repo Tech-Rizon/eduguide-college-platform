@@ -1855,19 +1855,33 @@ CREATE TABLE IF NOT EXISTS public.colleges (
   source_last_scraped_at TIMESTAMPTZ,
   is_active              BOOLEAN NOT NULL DEFAULT TRUE,
   created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  search_text            TEXT GENERATED ALWAYS AS (
-    lower(
-      coalesce(name, '') || ' ' ||
-      coalesce(location, '') || ' ' ||
-      coalesce(state, '') || ' ' ||
-      coalesce(city, '') || ' ' ||
-      coalesce(description, '') || ' ' ||
-      array_to_string(coalesce(majors, ARRAY[]::TEXT[]), ' ') || ' ' ||
-      array_to_string(coalesce(tags, ARRAY[]::TEXT[]), ' ')
-    )
-  ) STORED
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.colleges
+  ADD COLUMN IF NOT EXISTS search_text TEXT NOT NULL DEFAULT '';
+
+CREATE OR REPLACE FUNCTION public.sync_colleges_search_text()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.search_text := lower(
+    concat_ws(
+      ' ',
+      coalesce(NEW.name, ''),
+      coalesce(NEW.location, ''),
+      coalesce(NEW.state, ''),
+      coalesce(NEW.city, ''),
+      coalesce(NEW.description, ''),
+      array_to_string(coalesce(NEW.majors, ARRAY[]::TEXT[]), ' '),
+      array_to_string(coalesce(NEW.tags, ARRAY[]::TEXT[]), ' ')
+    )
+  );
+
+  RETURN NEW;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS colleges_is_active_idx ON public.colleges (is_active);
 CREATE INDEX IF NOT EXISTS colleges_state_idx ON public.colleges (state);
@@ -1898,6 +1912,27 @@ CREATE TRIGGER colleges_set_updated_at
   BEFORE UPDATE ON public.colleges
   FOR EACH ROW
   EXECUTE FUNCTION public.trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS colleges_sync_search_text ON public.colleges;
+CREATE TRIGGER colleges_sync_search_text
+  BEFORE INSERT OR UPDATE ON public.colleges
+  FOR EACH ROW
+  EXECUTE FUNCTION public.sync_colleges_search_text();
+
+UPDATE public.colleges
+SET search_text = lower(
+  concat_ws(
+    ' ',
+    coalesce(name, ''),
+    coalesce(location, ''),
+    coalesce(state, ''),
+    coalesce(city, ''),
+    coalesce(description, ''),
+    array_to_string(coalesce(majors, ARRAY[]::TEXT[]), ' '),
+    array_to_string(coalesce(tags, ARRAY[]::TEXT[]), ' ')
+  )
+)
+WHERE search_text = '';
 
 -- =============================================================================
 -- End of all-in-one Supabase database script.
