@@ -71,13 +71,13 @@ export function BackofficeShell({
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/backoffice">
-              <Button variant="outline" className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100">
+              <Button variant="outline" className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150">
                 <Home className="mr-2 h-4 w-4" />
                 Backoffice Home
               </Button>
             </Link>
             <Link href="/dashboard">
-              <Button variant="outline" className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100">
+              <Button variant="outline" className="border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Student View
               </Button>
@@ -98,8 +98,8 @@ export function BackofficeShell({
                   variant="outline"
                   className={
                     isActive
-                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 hover:text-emerald-100"
-                      : "border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-slate-100"
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 hover:text-emerald-100 transition-colors duration-150"
+                      : "border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150"
                   }
                 >
                   <Icon className="mr-2 h-4 w-4" />

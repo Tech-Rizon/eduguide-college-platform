@@ -183,6 +183,10 @@ export function TicketQueueDashboard({
     const nextStatus = statusByTicket[ticketId];
     if (!nextStatus) return;
 
+    // Optimistic update — reflect the change instantly so the UI isn't blocked
+    const prevStatus = tickets.find((t) => t.id === ticketId)?.status;
+    setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: nextStatus } : t));
+
     try {
       const response = await fetch("/api/backoffice/tickets/status", {
         method: "POST",
@@ -193,13 +197,16 @@ export function TicketQueueDashboard({
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? "Status update failed.");
+        // Revert optimistic update on failure
+        if (prevStatus) setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: prevStatus } : t));
         return;
       }
 
       toast.success("Ticket status updated.");
-      await loadTickets();
+      // Realtime subscription will handle background sync — no blocking reload needed
     } catch {
       toast.error("Status update failed.");
+      if (prevStatus) setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: prevStatus } : t));
     }
   };
 
@@ -215,19 +222,19 @@ export function TicketQueueDashboard({
     <BackofficeShell title={title} subtitle={subtitle} levelLabel={levelLabel} staffLevel={staffLevel}>
       {/* Stats row */}
       <div className="grid sm:grid-cols-3 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">Your Queue</CardDescription>
             <CardTitle className="text-3xl text-slate-100">{tickets.length}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">Urgent</CardDescription>
             <CardTitle className="text-3xl text-red-300">{urgentCount}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">SLA Breached</CardDescription>
             <CardTitle className="text-3xl text-amber-300">{breachedCount}</CardTitle>
@@ -260,7 +267,7 @@ export function TicketQueueDashboard({
                 variant="outline"
                 onClick={loadTickets}
                 disabled={refreshing}
-                className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100"
+                className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150"
               >
                 {refreshing ? "Refreshing..." : "Refresh"}
               </Button>
@@ -274,7 +281,7 @@ export function TicketQueueDashboard({
             </p>
           ) : (
             filteredTickets.map((ticket) => (
-              <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3">
+              <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3 transition-all duration-150 hover:border-slate-600 hover:bg-slate-800/90 hover:shadow-md hover:shadow-slate-950/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold truncate">{ticket.title}</p>
@@ -338,7 +345,7 @@ export function TicketQueueDashboard({
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100 transition-colors duration-150"
                     onClick={() =>
                       setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))
                     }

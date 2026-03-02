@@ -264,6 +264,21 @@ export default function ManagerDashboardPage() {
       return;
     }
 
+    // Optimistic update — reflect the assignment instantly so the UI isn't blocked
+    const prevTickets = tickets;
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? {
+              ...t,
+              assigned_team: assignment.assignedTeam,
+              assigned_to_user_id: assignment.assigneeUserId,
+              status: t.status === "new" ? "assigned" : t.status,
+            }
+          : t,
+      ),
+    );
+
     try {
       const res = await fetch("/api/backoffice/tickets/assign", {
         method: "POST",
@@ -278,13 +293,15 @@ export default function ManagerDashboardPage() {
       if (!res.ok) {
         const payload = await res.json().catch(() => null) as { error?: string } | null;
         toast.error(payload?.error ?? "Assignment failed.");
+        setTickets(prevTickets); // revert on error
         return;
       }
 
       toast.success("Ticket assigned.");
-      await loadData();
+      // Realtime subscription will handle background sync — no blocking reload needed
     } catch {
       toast.error("Assignment failed.");
+      setTickets(prevTickets); // revert on error
     }
   };
 
@@ -403,25 +420,25 @@ export default function ManagerDashboardPage() {
       <>
       {/* Stats */}
       <div className="grid sm:grid-cols-4 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">Total Queue</CardDescription>
             <CardTitle className="text-3xl text-slate-100">{tickets.length}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">Unassigned</CardDescription>
             <CardTitle className="text-3xl text-amber-300">{unassignedCount}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">In Progress</CardDescription>
             <CardTitle className="text-3xl text-emerald-300">{inProgressCount}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-slate-900 border-slate-800">
+        <Card className="bg-slate-900 border-slate-800 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-700">
           <CardHeader className="pb-2">
             <CardDescription className="text-slate-400">SLA Breached</CardDescription>
             <CardTitle className="text-3xl text-red-300">{breachedCount}</CardTitle>
@@ -537,7 +554,7 @@ export default function ManagerDashboardPage() {
                 (ticket.assigned_team === "tutor" && tutors.length === 0));
 
             return (
-              <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3">
+              <div key={ticket.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-3 transition-all duration-150 hover:border-slate-600 hover:bg-slate-800/90 hover:shadow-md hover:shadow-slate-950/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{ticket.title}</p>
@@ -615,7 +632,7 @@ export default function ManagerDashboardPage() {
                     </SelectContent>
                   </Select>
 
-                  <Button onClick={() => assignTicket(ticket.id)} className="bg-emerald-600 hover:bg-emerald-500">
+                  <Button onClick={() => assignTicket(ticket.id)} className="bg-emerald-600 hover:bg-emerald-500 transition-colors duration-150">
                     {autoAssigned ? "Reassign" : "Assign"}
                   </Button>
                 </div>
@@ -624,7 +641,7 @@ export default function ManagerDashboardPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+                    className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100 transition-colors duration-150"
                     onClick={() => setOpenThreadTicketId((prev) => (prev === ticket.id ? null : ticket.id))}
                   >
                     {openThreadTicketId === ticket.id ? "Hide Thread" : "Open Thread"}

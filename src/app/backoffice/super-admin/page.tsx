@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Link from "next/link";
 import { BackofficeShell } from "@/components/backoffice/BackofficeShell";
 import { TicketThreadPanel } from "@/components/backoffice/TicketThreadPanel";
 import { useStaffAccess } from "@/hooks/useStaffAccess";
@@ -567,23 +568,18 @@ export default function SuperAdminDashboardPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="bg-slate-800/60 border-slate-700/50">
+        <Card className="bg-slate-800/60 border-slate-700/50 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-600">
           <CardHeader>
             <CardTitle className="text-slate-100 text-base">Referral Program</CardTitle>
           </CardHeader>
           <CardContent>
-            <a href="/backoffice/super-admin/referrals">
-              <button
-                type="button"
-                className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
-              >
-                View Referral Records
-              </button>
-            </a>
+            <Button asChild variant="outline" className="border-slate-600 bg-transparent text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors duration-150">
+              <Link href="/backoffice/super-admin/referrals">View Referral Records</Link>
+            </Button>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/60 border-slate-700/50">
+        <Card className="bg-slate-800/60 border-slate-700/50 transition-colors duration-150 hover:bg-slate-800/80 hover:border-slate-600">
           <CardHeader>
             <CardTitle className="text-slate-100 text-base">College Catalog</CardTitle>
             <CardDescription className="text-slate-400">
@@ -591,14 +587,9 @@ export default function SuperAdminDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <a href="/backoffice/super-admin/colleges">
-              <button
-                type="button"
-                className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
-              >
-                Manage College Catalog
-              </button>
-            </a>
+            <Button asChild variant="outline" className="border-slate-600 bg-transparent text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors duration-150">
+              <Link href="/backoffice/super-admin/colleges">Manage College Catalog</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
