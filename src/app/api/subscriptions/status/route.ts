@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { resolveAccess } from '@/lib/accessGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +18,22 @@ export async function GET(request: Request) {
   }
   const userId = userData.user.id
 
-  const { data: sub } = await sb
-    .from('subscriptions')
-    .select('plan, status, current_period_end, cancel_at_period_end, stripe_subscription_id')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // Run subscription fetch and access resolution in parallel
+  const [subResult, access] = await Promise.all([
+    sb
+      .from('subscriptions')
+      .select('plan, status, current_period_end, cancel_at_period_end, stripe_subscription_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    resolveAccess(userId, sb),
+  ])
 
-  return NextResponse.json({ subscription: sub ?? null })
+  return NextResponse.json({
+    subscription: subResult.data ?? null,
+    tier: access.tier,
+    days_left: access.daysLeft,
+    trial_started_at: access.trialStartedAt,
+  })
 }

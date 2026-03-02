@@ -5,6 +5,7 @@ import {
   searchCourseChunks,
 } from '@/lib/courseIntelligence'
 import { supabaseServer as sb } from '@/lib/supabaseServer'
+import { resolveAccess, canAccess, denyAccess } from '@/lib/accessGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,6 +107,10 @@ export async function POST(
     .maybeSingle()
 
   if (!course) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // Subscription gate: study tools require Premium or Elite
+  const { tier } = await resolveAccess(userId, sb)
+  if (!canAccess(tier, 'study_tools')) return denyAccess('study_tools', 'premium')
 
   let body: {
     tool?: unknown

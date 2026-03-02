@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UpgradePrompt } from "@/components/ui/UpgradePrompt";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
 
@@ -96,6 +98,7 @@ function TutoringSupportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { user } = useAuth();
+  const { canAccess, isLoading: subLoading } = useSubscription();
 
   const form = useForm<RequestForm>({
     resolver: zodResolver(requestSchema),
@@ -222,6 +225,13 @@ function TutoringSupportPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
           >
+            {!subLoading && !canAccess("tutoring") ? (
+              <UpgradePrompt
+                feature="Live Tutoring & Support"
+                requiredTier="elite"
+                description="Get matched with an expert tutor for 1-on-1 sessions, assignment help, college prep, and academic coaching."
+              />
+            ) : (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -345,6 +355,7 @@ function TutoringSupportPage() {
                 )}
               </CardContent>
             </Card>
+            )}
           </motion.div>
         </div>
 

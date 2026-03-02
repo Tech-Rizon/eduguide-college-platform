@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveAccessFromRequest } from "@/lib/accessControl";
 import { createUserScopedSupabaseClient } from "@/lib/supabaseRequest";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { resolveAccess, canAccess, denyAccess } from "@/lib/accessGate";
 
 export const dynamic = "force-dynamic";
 
@@ -353,6 +354,10 @@ export async function POST(request: Request) {
     if (access.isStaffView) {
       return NextResponse.json({ error: "Live support widget is available for student accounts only." }, { status: 403 });
     }
+
+    // Subscription gate: live tutoring requires Elite plan
+    const { tier } = await resolveAccess(access.user.id, supabaseServer)
+    if (!canAccess(tier, 'tutoring')) return denyAccess('tutoring', 'elite')
 
     const body = await request.json().catch(() => ({}));
     const initialMessage = typeof body?.initialMessage === "string" ? body.initialMessage.trim() : "";

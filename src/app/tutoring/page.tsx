@@ -521,15 +521,19 @@ export default function TutoringPage() {
                 <ul className="space-y-3">
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>1-on-1 tutoring sessions</span>
+                    <span>AI College Chat</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Assignment help</span>
+                    <span>College Plan &amp; Application Tracker</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Basic progress tracking</span>
+                    <span>GPA Calculator</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Course RAG Chat</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
@@ -568,15 +572,15 @@ export default function TutoringPage() {
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Study Tools (notes, flashcards, exam)</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Assignment Workspace</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
                     <span>College application support</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Essay writing assistance</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Study planning & scheduling</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
@@ -612,19 +616,19 @@ export default function TutoringPage() {
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Essay Builder &amp; AI Feedback</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Live Tutoring &amp; 1-on-1 Support</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
                     <span>Dedicated academic coach</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Career planning & guidance</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Interview preparation</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>24/7 chat support</span>
+                    <span>Career planning &amp; 24/7 chat</span>
                   </li>
                 </ul>
                 <Button
@@ -642,6 +646,46 @@ export default function TutoringPage() {
           <p className="text-center text-sm text-gray-400 mt-6">
             Subscriptions renew automatically on your billing date. You can cancel or switch plans at any time from your dashboard. Prices shown in USD.
           </p>
+
+          {/* Feature comparison table */}
+          <div className="mt-10 overflow-x-auto">
+            <p className="text-center text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Platform Features Included</p>
+            <table className="w-full max-w-3xl mx-auto text-sm border-collapse">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-2 px-3 text-gray-600 font-medium">Feature</th>
+                  <th className="text-center py-2 px-3 text-gray-600 font-medium">Basic</th>
+                  <th className="text-center py-2 px-3 text-gray-600 font-medium">Premium</th>
+                  <th className="text-center py-2 px-3 text-gray-600 font-medium">Elite</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {[
+                  ["AI College Chat", true, true, true],
+                  ["College Plan & Tracker", true, true, true],
+                  ["GPA Calculator", true, true, true],
+                  ["Course RAG Chat", true, true, true],
+                  ["Study Tools (notes, flashcards, exam)", false, true, true],
+                  ["Assignment Workspace", false, true, true],
+                  ["Essay Builder & AI Feedback", false, false, true],
+                  ["Live Tutoring & Support", false, false, true],
+                ].map(([label, basic, premium, elite]) => (
+                  <tr key={label as string} className="hover:bg-gray-50">
+                    <td className="py-2.5 px-3 text-gray-700">{label as string}</td>
+                    {[basic, premium, elite].map((included, i) => (
+                      <td key={i} className="text-center py-2.5 px-3">
+                        {included
+                          ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                          : <span className="text-gray-300 text-lg leading-none">—</span>
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-center text-xs text-gray-400 mt-3">All new accounts get full access free for 14 days.</p>
+          </div>
         </motion.div>
 
         {/* CTA Section */}

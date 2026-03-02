@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resolveAccess, canAccess, denyAccess } from '@/lib/accessGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,10 @@ export async function POST(
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+
+  // Subscription gate: AI essay feedback requires Elite
+  const { tier } = await resolveAccess(userId, sb)
+  if (!canAccess(tier, 'essays')) return denyAccess('essays', 'elite')
 
   // Fetch the essay (ownership check via user_id)
   const { data: essay, error: fetchError } = await sb

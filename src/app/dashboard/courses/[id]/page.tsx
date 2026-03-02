@@ -32,6 +32,8 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UpgradePrompt } from "@/components/ui/UpgradePrompt";
 
 interface Course {
   id: string;
@@ -76,6 +78,7 @@ export default function CourseDetailPage() {
   const courseId = params.id as string;
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
+  const { canAccess } = useSubscription();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [documents, setDocuments] = useState<CourseDocument[]>([]);
@@ -758,6 +761,14 @@ export default function CourseDetailPage() {
         {/* ── STUDY TOOLS ── */}
         {activeTab === "notes" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+            {!canAccess("study_tools") && (
+              <UpgradePrompt
+                feature="Study Tools"
+                requiredTier="premium"
+                description="Generate AI-powered notes, flashcards, and exam questions from your course materials."
+              />
+            )}
+            {canAccess("study_tools") && (<>
             <Card>
               <CardContent className="p-6 space-y-4">
                 <h3 className="font-semibold text-gray-900">Configure</h3>
@@ -861,13 +872,21 @@ export default function CourseDetailPage() {
                 </Card>
               </motion.div>
             )}
+            </>)}
           </motion.div>
         )}
 
         {/* ── WORKSPACE ── */}
         {activeTab === "workspace" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-            <Card>
+            {!canAccess("workspace") && (
+              <UpgradePrompt
+                feature="Assignment Workspace"
+                requiredTier="premium"
+                description="Get AI feedback on your assignments and drafts grounded in your course materials."
+              />
+            )}
+            {canAccess("workspace") && (<><Card>
               <CardContent className="p-6 space-y-4">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileEdit className="h-5 w-5 text-purple-600" />
@@ -950,6 +969,7 @@ export default function CourseDetailPage() {
                 </Card>
               </motion.div>
             )}
+            </>)}
           </motion.div>
         )}
       </main>

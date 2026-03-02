@@ -46,6 +46,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { TrialBanner } from "@/components/ui/TrialBanner";
+import { UpgradePrompt } from "@/components/ui/UpgradePrompt";
 import { supabase } from "@/lib/supabaseClient";
 import type { UserProfile } from "@/lib/aiEngine";
 import type { AIChatResponse, AIChatSource } from "@/lib/aiChatTypes";
@@ -194,6 +197,7 @@ export default function DashboardPage() {
   const [savedCollegeIds, setSavedCollegeIds] = useState<Set<string>>(new Set());
 
   const { user: authUser, session, loading, signOut } = useAuth();
+  const { tier, daysLeft, canAccess } = useSubscription();
 
   useEffect(() => {
     if (loading) return;
@@ -644,6 +648,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <TrialBanner tier={tier} daysLeft={daysLeft} />
       {/* Navigation */}
       <nav className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -1115,18 +1120,27 @@ export default function DashboardPage() {
 
                 <Separator className="my-4" />
 
-                <div className="flex space-x-2">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder='Try: "I need affordable nursing schools with strong support and clean transfer paths"'
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                    disabled={isTyping}
+                {canAccess("ai_chat") ? (
+                  <div className="flex space-x-2">
+                    <Input
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      placeholder='Try: "I need affordable nursing schools with strong support and clean transfer paths"'
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                      disabled={isTyping}
+                    />
+                    <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim()}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <UpgradePrompt
+                    feature="AI College Chat"
+                    requiredTier="basic"
+                    description="Your free trial has ended. Subscribe to keep chatting with the AI college advisor."
+                    variant="inline"
                   />
-                  <Button onClick={sendMessage} disabled={isTyping || !inputMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>

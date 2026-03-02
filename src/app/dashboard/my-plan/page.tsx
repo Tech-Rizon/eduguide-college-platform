@@ -30,6 +30,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UpgradePrompt } from "@/components/ui/UpgradePrompt";
 import type { CollegeEntry } from "@/lib/collegeDatabase";
 
 interface ShortlistItem {
@@ -141,6 +143,7 @@ export default function MyPlanPage() {
 
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
+  const { canAccess } = useSubscription();
 
   const fetchPlan = useCallback(async (token: string) => {
     const res = await fetch("/api/my-plan", {
@@ -828,7 +831,13 @@ export default function MyPlanPage() {
         {/* Essays Tab */}
         {activeTab === "essays" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            {!essaysLoaded ? (
+            {!canAccess("essays") ? (
+              <UpgradePrompt
+                feature="Essay Builder & AI Feedback"
+                requiredTier="elite"
+                description="Write, save, and get AI admissions feedback on your college essays — Common App, Why Us, supplemental, and scholarship essays."
+              />
+            ) : !essaysLoaded ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
