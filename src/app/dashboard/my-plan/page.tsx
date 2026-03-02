@@ -22,6 +22,9 @@ import {
   CheckSquare,
   Square,
   ClipboardList,
+  FileText,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,6 +54,40 @@ interface ChecklistItem {
 interface MyPlanData {
   shortlist: ShortlistItem[];
   checklist: ChecklistItem[];
+}
+
+interface EssayItem {
+  id: string;
+  college_id: string;
+  college_name: string;
+  essay_type: string;
+  title: string | null;
+  prompt_text: string | null;
+  draft_text: string;
+  word_count: number;
+  ai_feedback: string | null;
+  feedback_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const ESSAY_TYPES = [
+  { value: "common_app",   label: "Common App",   limit: 650 },
+  { value: "why_us",       label: "Why Us",        limit: 650 },
+  { value: "supplemental", label: "Supplemental",  limit: 650 },
+  { value: "scholarship",  label: "Scholarship",   limit: 650 },
+];
+
+function getEssayTypeLabel(type: string): string {
+  return ESSAY_TYPES.find((t) => t.value === type)?.label ?? type;
+}
+
+function getEssayWordLimit(type: string): number {
+  return ESSAY_TYPES.find((t) => t.value === type)?.limit ?? 650;
+}
+
+function wordCount(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
 const APPLICATION_STATUSES = [
@@ -83,13 +120,24 @@ export default function MyPlanPage() {
   const [shortlist, setShortlist] = useState<ShortlistItem[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"list" | "tracker">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "tracker" | "essays">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CollegeEntry[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [trackerFilter, setTrackerFilter] = useState("all");
   const [addingCollegeId, setAddingCollegeId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Essays tab state
+  const [essays, setEssays] = useState<EssayItem[]>([]);
+  const [essaysLoaded, setEssaysLoaded] = useState(false);
+  const [activeEssayId, setActiveEssayId] = useState<string | null>(null);
+  const [essayDraftLocal, setEssayDraftLocal] = useState<Record<string, string>>({});
+  const [essayFeedbackLoading, setEssayFeedbackLoading] = useState<string | null>(null);
+  const [essayCreateLoading, setEssayCreateLoading] = useState(false);
+  const [newEssayCollegeId, setNewEssayCollegeId] = useState("");
+  const [newEssayType, setNewEssayType] = useState("common_app");
+  const autoSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
@@ -280,6 +328,129 @@ export default function MyPlanPage() {
     }
   };
 
+  const loadEssays = useCallback(async (token: string) => {
+    const res = await fetch("/api/my-plan/essays", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setEssays(data.essays ?? []);
+      // Seed local draft cache
+      const cache: Record<string, string> = {};
+      for (const e of (data.essays ?? []) as EssayItem[]) {
+        cache[e.id] = e.draft_text;
+      }
+      setEssayDraftLocal(cache);
+    }
+    setEssaysLoaded(true);
+  }, []);
+
+  const handleEssaysTab = () => {
+    setActiveTab("essays");
+    if (!essaysLoaded && session?.access_token) {
+      loadEssays(session.access_token);
+    }
+  };
+
+  const createEssay = async () => {
+    if (!session?.access_token || !newEssayCollegeId || essayCreateLoading) return;
+    setEssayCreateLoading(true);
+    const college = shortlist.find((s) => s.college_id === newEssayCollegeId);
+    if (!college) { setEssayCreateLoading(false); return; }
+
+    const res = await fetch("/api/my-plan/essays", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        college_id: college.college_id,
+        college_name: college.college_name,
+        essay_type: newEssayType,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const newEssay = data.essay as EssayItem;
+      setEssays((prev) => [...prev, newEssay]);
+      setEssayDraftLocal((prev) => ({ ...prev, [newEssay.id]: "" }));
+      setActiveEssayId(newEssay.id);
+      setNewEssayCollegeId("");
+      setNewEssayType("common_app");
+      toast.success("Essay created");
+    } else {
+      toast.error("Could not create essay");
+    }
+    setEssayCreateLoading(false);
+  };
+
+  const deleteEssay = async (essayId: string) => {
+    if (!session?.access_token) return;
+    if (!confirm("Delete this essay draft?")) return;
+
+    setEssays((prev) => prev.filter((e) => e.id !== essayId));
+    if (activeEssayId === essayId) setActiveEssayId(null);
+
+    const res = await fetch(`/api/my-plan/essays/${essayId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) {
+      toast.error("Could not delete essay");
+      if (session?.access_token) loadEssays(session.access_token);
+    }
+  };
+
+  const handleDraftChange = (essayId: string, text: string) => {
+    setEssayDraftLocal((prev) => ({ ...prev, [essayId]: text }));
+    // Update word count optimistically in list
+    setEssays((prev) =>
+      prev.map((e) => (e.id === essayId ? { ...e, draft_text: text, word_count: wordCount(text) } : e)),
+    );
+
+    // Debounced auto-save
+    if (autoSaveTimers.current[essayId]) clearTimeout(autoSaveTimers.current[essayId]);
+    autoSaveTimers.current[essayId] = setTimeout(async () => {
+      if (!session?.access_token) return;
+      await fetch(`/api/my-plan/essays/${essayId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ draft_text: text }),
+      });
+    }, 1500);
+  };
+
+  const requestFeedback = async (essayId: string) => {
+    if (!session?.access_token || essayFeedbackLoading) return;
+    setEssayFeedbackLoading(essayId);
+
+    const res = await fetch(`/api/my-plan/essays/${essayId}/feedback`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setEssays((prev) =>
+        prev.map((e) =>
+          e.id === essayId
+            ? { ...e, ai_feedback: data.feedback, feedback_at: data.feedback_at }
+            : e,
+        ),
+      );
+      toast.success("AI feedback generated");
+    } else {
+      const err = await res.json().catch(() => ({ error: "Error" }));
+      toast.error(err.error ?? "Could not get feedback");
+    }
+    setEssayFeedbackLoading(null);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-purple-50">
@@ -398,6 +569,17 @@ export default function MyPlanPage() {
             }`}
           >
             Application Tracker
+          </button>
+          <button
+            type="button"
+            onClick={handleEssaysTab}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "essays"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Essays ({essays.length})
           </button>
         </div>
 
@@ -640,6 +822,242 @@ export default function MyPlanPage() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </motion.div>
+        )}
+        {/* Essays Tab */}
+        {activeTab === "essays" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            {!essaysLoaded ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left column: essay list + create */}
+                <div className="space-y-3">
+                  {/* Create new essay */}
+                  <Card className="bg-white shadow-sm">
+                    <CardContent className="p-4 space-y-3">
+                      <p className="text-sm font-medium text-gray-700">New Essay</p>
+                      {shortlist.length === 0 ? (
+                        <p className="text-xs text-gray-400">Add colleges to your plan first.</p>
+                      ) : (
+                        <>
+                          <Select value={newEssayCollegeId} onValueChange={setNewEssayCollegeId}>
+                            <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectValue placeholder="Select college…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {shortlist.map((s) => (
+                                <SelectItem key={s.college_id} value={s.college_id}>
+                                  {s.college_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={newEssayType} onValueChange={setNewEssayType}>
+                            <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ESSAY_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            className="w-full text-xs h-8"
+                            onClick={createEssay}
+                            disabled={!newEssayCollegeId || essayCreateLoading}
+                          >
+                            {essayCreateLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <Plus className="h-3 w-3 mr-1" />
+                            )}
+                            Add Essay
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Essay list grouped by college */}
+                  {essays.length === 0 ? (
+                    <Card className="border-dashed border-2 border-gray-200">
+                      <CardContent className="py-10 text-center">
+                        <FileText className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400">No essays yet</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    (() => {
+                      // Group by college_name
+                      const groups: Record<string, EssayItem[]> = {};
+                      for (const e of essays) {
+                        if (!groups[e.college_name]) groups[e.college_name] = [];
+                        groups[e.college_name].push(e);
+                      }
+                      return Object.entries(groups).map(([collegeName, items]) => (
+                        <div key={collegeName}>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 px-1">
+                            {collegeName}
+                          </p>
+                          <div className="space-y-1">
+                            {items.map((essay) => (
+                              <button
+                                key={essay.id}
+                                type="button"
+                                onClick={() => setActiveEssayId(essay.id)}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                                  activeEssayId === essay.id
+                                    ? "bg-blue-50 border-blue-200 text-blue-900"
+                                    : "bg-white border-gray-200 hover:bg-gray-50"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">
+                                      {getEssayTypeLabel(essay.essay_type)}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      {essay.word_count} / {getEssayWordLimit(essay.essay_type)} words
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); deleteEssay(essay.id); }}
+                                    className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                                    aria-label="Delete essay"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()
+                  )}
+                </div>
+
+                {/* Right column: editor */}
+                <div className="lg:col-span-2">
+                  {(() => {
+                    const essay = essays.find((e) => e.id === activeEssayId);
+                    if (!essay) {
+                      return (
+                        <Card className="border-dashed border-2 border-gray-200 h-full">
+                          <CardContent className="flex flex-col items-center justify-center py-24">
+                            <FileText className="h-10 w-10 text-gray-200 mb-3" />
+                            <p className="text-gray-400 text-sm">Select an essay to start writing</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    const limit = getEssayWordLimit(essay.essay_type);
+                    const wc = wordCount(essayDraftLocal[essay.id] ?? essay.draft_text);
+                    const wordCountColor =
+                      wc > limit
+                        ? "text-red-600"
+                        : wc >= limit - 50
+                        ? "text-orange-500"
+                        : "text-gray-400";
+
+                    return (
+                      <Card className="bg-white shadow-sm">
+                        <CardContent className="p-5 space-y-4">
+                          {/* Essay header */}
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {essay.college_name} — {getEssayTypeLabel(essay.essay_type)}
+                              </p>
+                              <p className="text-xs text-gray-400">Auto-saves after you stop typing</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => requestFeedback(essay.id)}
+                              disabled={essayFeedbackLoading === essay.id || wc < 10}
+                            >
+                              {essayFeedbackLoading === essay.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Sparkles className="h-3 w-3 mr-1" />
+                              )}
+                              AI Feedback
+                            </Button>
+                          </div>
+
+                          {/* Optional prompt */}
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Essay Prompt (optional)</label>
+                            <Input
+                              className="text-sm bg-white"
+                              placeholder="Paste the prompt here…"
+                              defaultValue={essay.prompt_text ?? ""}
+                              onBlur={(e) => {
+                                if (!session?.access_token) return;
+                                fetch(`/api/my-plan/essays/${essay.id}`, {
+                                  method: "PATCH",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${session.access_token}`,
+                                  },
+                                  body: JSON.stringify({ prompt_text: e.target.value }),
+                                });
+                              }}
+                            />
+                          </div>
+
+                          {/* Draft textarea */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs text-gray-500">Draft</label>
+                              <span className={`text-xs font-medium ${wordCountColor}`}>
+                                {wc} / {limit} words
+                              </span>
+                            </div>
+                            <Textarea
+                              className="text-sm bg-white resize-none"
+                              rows={16}
+                              placeholder="Start writing your essay…"
+                              value={essayDraftLocal[essay.id] ?? essay.draft_text}
+                              onChange={(e) => handleDraftChange(essay.id, e.target.value)}
+                            />
+                          </div>
+
+                          {/* AI Feedback */}
+                          {essay.ai_feedback && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Sparkles className="h-4 w-4 text-blue-600" />
+                                <p className="text-sm font-semibold text-blue-800">AI Admissions Feedback</p>
+                                {essay.feedback_at && (
+                                  <span className="text-xs text-blue-400 ml-auto">
+                                    {new Date(essay.feedback_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-blue-900 whitespace-pre-wrap leading-relaxed">
+                                {essay.ai_feedback}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
+                </div>
+              </div>
             )}
           </motion.div>
         )}

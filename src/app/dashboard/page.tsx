@@ -40,6 +40,7 @@ import {
   CreditCard,
   Gift,
   ClipboardList,
+  Calculator,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -880,6 +881,25 @@ export default function DashboardPage() {
                   <Link href="/dashboard/courses">
                     <Button className="w-full bg-purple-600 hover:bg-purple-700" size="sm">
                       Open Courses
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* GPA Calculator */}
+              <Card className="border-emerald-100 bg-emerald-50/30">
+                <CardContent className="pt-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-emerald-600" />
+                    <span className="font-semibold text-gray-900">GPA Calculator</span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Track semester GPA, cumulative GPA, and calculate required final scores
+                  </p>
+                  <Link href="/dashboard/gpa">
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700" size="sm">
+                      Open GPA Tracker
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
