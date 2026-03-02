@@ -1935,5 +1935,185 @@ SET search_text = lower(
 WHERE search_text = '';
 
 -- =============================================================================
+-- Migration 16: 20260302_student_leads.sql
+-- Student lead capture table (pre-registration contact info)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.student_leads (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT        NOT NULL,
+  last_name  TEXT        NOT NULL,
+  email      TEXT        NOT NULL,
+  phone      TEXT,
+  notes      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (email)
+);
+
+CREATE INDEX IF NOT EXISTS student_leads_email_idx ON public.student_leads (email);
+CREATE INDEX IF NOT EXISTS student_leads_created_at_idx ON public.student_leads (created_at DESC);
+
+ALTER TABLE public.student_leads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public lead capture" ON public.student_leads;
+CREATE POLICY "Public lead capture"
+  ON public.student_leads FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access to student_leads" ON public.student_leads;
+CREATE POLICY "Service role full access to student_leads"
+  ON public.student_leads FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+-- =============================================================================
+-- Migration 17: 20260302_gpa_tracker.sql
+-- GPA tracking tables: gpa_semesters + gpa_entries
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.gpa_semesters (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name       TEXT        NOT NULL,
+  sort_order INTEGER     NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS gpa_semesters_user_id_idx
+  ON public.gpa_semesters (user_id);
+
+ALTER TABLE public.gpa_semesters ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own gpa_semesters" ON public.gpa_semesters;
+CREATE POLICY "Users can manage own gpa_semesters"
+  ON public.gpa_semesters FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role full access to gpa_semesters" ON public.gpa_semesters;
+CREATE POLICY "Service role full access to gpa_semesters"
+  ON public.gpa_semesters FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+CREATE TABLE IF NOT EXISTS public.gpa_entries (
+  id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  semester_id  UUID         NOT NULL REFERENCES public.gpa_semesters(id) ON DELETE CASCADE,
+  course_name  TEXT         NOT NULL,
+  credit_hours NUMERIC(4,1) NOT NULL CHECK (credit_hours > 0 AND credit_hours <= 20),
+  grade_letter TEXT         NOT NULL,
+  grade_points NUMERIC(3,1) NOT NULL CHECK (grade_points >= 0 AND grade_points <= 4.0),
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS gpa_entries_user_id_idx
+  ON public.gpa_entries (user_id);
+CREATE INDEX IF NOT EXISTS gpa_entries_semester_id_idx
+  ON public.gpa_entries (semester_id);
+
+ALTER TABLE public.gpa_entries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own gpa_entries" ON public.gpa_entries;
+CREATE POLICY "Users can manage own gpa_entries"
+  ON public.gpa_entries FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role full access to gpa_entries" ON public.gpa_entries;
+CREATE POLICY "Service role full access to gpa_entries"
+  ON public.gpa_entries FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP TRIGGER IF EXISTS gpa_entries_set_updated_at ON public.gpa_entries;
+CREATE TRIGGER gpa_entries_set_updated_at
+  BEFORE UPDATE ON public.gpa_entries
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trigger_set_updated_at();
+
+-- =============================================================================
+-- Migration 18: 20260302_college_essays.sql
+-- College Essay Builder table
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.college_essays (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  college_id   TEXT        NOT NULL,
+  college_name TEXT        NOT NULL,
+  essay_type   TEXT        NOT NULL DEFAULT 'common_app'
+               CHECK (essay_type IN ('common_app', 'why_us', 'supplemental', 'scholarship')),
+  title        TEXT,
+  prompt_text  TEXT,
+  draft_text   TEXT        NOT NULL DEFAULT '',
+  word_count   INTEGER     NOT NULL DEFAULT 0,
+  ai_feedback  TEXT,
+  feedback_at  TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS college_essays_user_id_idx
+  ON public.college_essays (user_id);
+CREATE INDEX IF NOT EXISTS college_essays_user_college_idx
+  ON public.college_essays (user_id, college_id);
+
+ALTER TABLE public.college_essays ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own college_essays" ON public.college_essays;
+CREATE POLICY "Users can manage own college_essays"
+  ON public.college_essays FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role full access to college_essays" ON public.college_essays;
+CREATE POLICY "Service role full access to college_essays"
+  ON public.college_essays FOR ALL
+  USING  (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP TRIGGER IF EXISTS college_essays_set_updated_at ON public.college_essays;
+CREATE TRIGGER college_essays_set_updated_at
+  BEFORE UPDATE ON public.college_essays
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trigger_set_updated_at();
+
+-- =============================================================================
+-- Migration 19: 20260305_trial_and_access.sql
+-- 14-day free trial: adds trial_started_at to user_profiles + auto-set trigger
+-- =============================================================================
+
+ALTER TABLE public.user_profiles
+  ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+  RETURNS TRIGGER
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, trial_started_at)
+  VALUES (NEW.id, NEW.email, NOW())
+  ON CONFLICT (id) DO UPDATE
+    SET trial_started_at = COALESCE(public.user_profiles.trial_started_at, NOW());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+UPDATE public.user_profiles
+  SET trial_started_at = created_at
+  WHERE trial_started_at IS NULL;
+
+-- =============================================================================
 -- End of all-in-one Supabase database script.
 -- =============================================================================

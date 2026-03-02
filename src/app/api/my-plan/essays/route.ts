@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseServer as sb } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic'
-
-const sb = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
 
 function getToken(req: Request): string | null {
   const auth = req.headers.get('Authorization') ?? ''
