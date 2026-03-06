@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { GraduationCap, ArrowLeft, Lock } from "lucide-react";
+import { GraduationCap, ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,7 +17,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Must contain an uppercase letter")
+    .regex(/[a-z]/, "Must contain a lowercase letter")
+    .regex(/\d/, "Must contain a number")
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, "Must contain a special character"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -29,6 +35,8 @@ type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const { updatePassword } = useAuth();
 
@@ -72,9 +80,10 @@ export default function ResetPasswordPage() {
 
       toast.success("Password reset successful! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Password reset error:", error);
-      toast.error(error?.message || "Failed to reset password");
+      const message = error instanceof Error ? error.message : "Failed to reset password";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +91,7 @@ export default function ResetPasswordPage() {
 
   if (isVerifying) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600">Verifying your reset link...</p>
         </div>
@@ -91,7 +100,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50">
       {/* Navigation */}
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
@@ -133,12 +142,23 @@ export default function ResetPasswordPage() {
                       <FormItem>
                         <FormLabel>New Password</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Enter your new password"
-                            {...field}
-                            disabled={isLoading}
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter your new password"
+                              className="pr-10"
+                              {...field}
+                              disabled={isLoading}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                              tabIndex={-1}
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -152,12 +172,23 @@ export default function ResetPasswordPage() {
                       <FormItem>
                         <FormLabel>Confirm Password</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Confirm your new password"
-                            {...field}
-                            disabled={isLoading}
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="Confirm your new password"
+                              className="pr-10"
+                              {...field}
+                              disabled={isLoading}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                              tabIndex={-1}
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

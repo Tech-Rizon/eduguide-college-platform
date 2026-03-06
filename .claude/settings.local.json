@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth status:*)",
+      "Bash(where:*)",
+      "Bash(cmd.exe /c \"where gh\")",
+      "Bash(winget install:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(npm run build)",
+      "Bash(xargs sed -i 's/bg-gradient-to-/bg-linear-to-/g')",
+      "Bash(node -e \"console.log\\(require\\(''crypto''\\).randomBytes\\(32\\).toString\\(''hex''\\)\\)\")",
+      "Bash(npx tsc --noEmit --skipLibCheck)",
+      "Bash(npx next build)",
+      "Bash(npx eslint src/app/dashboard/page.tsx --max-warnings=0)",
+      "Bash(./node_modules/.bin/next lint)",
+      "Bash(npx next lint -- src/app/dashboard/page.tsx)",
+      "Bash(npm run lint)",
+      "Bash(bunx biome lint --write src/app/dashboard/page.tsx)",
+      "Bash(grep -E \"^C:\\\\\\\\|error\\\\[|× \")",
+      "Bash(bunx biome lint src/ --max-diagnostics=100)",
+      "Bash(bunx biome lint src/ --max-diagnostics=200)",
+      "Bash(bunx biome lint src/app/dashboard/page.tsx --max-diagnostics=50)",
+      "Bash(bunx biome lint src/ --reporter=json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f[''path''][''file''],'':'',e[''location''][''span''][''start''][''line''],''->'',e[''category'']\\) for f in d[''diagnostics''] if f[''severity'']==''error'' for e in [f]]\")",
+      "Bash(npm install react-markdown)",
+      "Bash(node -e \"console.log\\(require\\(''/c/Users/Window/Documents/GitHub/eduguide-college-platform/node_modules/react-markdown/package.json''\\).version\\)\")",
+      "Bash(git add package.json package-lock.json src/app/dashboard/page.tsx)",
+      "Bash(git push origin main)",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}
