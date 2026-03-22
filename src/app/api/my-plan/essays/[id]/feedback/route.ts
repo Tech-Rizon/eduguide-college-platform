@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildEssayFeedbackContext } from '@/lib/firecrawlMagic'
 import { supabaseServer as sb } from '@/lib/supabaseServer'
 import { resolveAccess, canAccess, denyAccess } from '@/lib/accessGate'
 
@@ -43,7 +44,7 @@ export async function POST(
   // Fetch the essay (ownership check via user_id)
   const { data: essay, error: fetchError } = await sb
     .from('college_essays')
-    .select('id, essay_type, college_name, prompt_text, draft_text, word_count')
+    .select('id, college_id, essay_type, college_name, prompt_text, draft_text, word_count')
     .eq('id', id)
     .eq('user_id', userId)
     .single()
@@ -60,8 +61,13 @@ export async function POST(
   }
 
   const essayTypeLabel = ESSAY_TYPE_LABELS[essay.essay_type] ?? 'college essay'
+  const officialContext = await buildEssayFeedbackContext(
+    essay.college_id,
+    essay.college_name,
+  ).catch(() => '')
   const promptLines = [
     `You are an experienced college admissions counselor reviewing a student's ${essayTypeLabel} for ${essay.college_name}.`,
+    officialContext ? `\nOFFICIAL COLLEGE CONTEXT:\n${officialContext}` : '',
     essay.prompt_text ? `\nESSAY PROMPT:\n${essay.prompt_text}` : '',
     `\nDRAFT (${essay.word_count} words):\n${essay.draft_text}`,
     `\nProvide concise, actionable feedback covering:

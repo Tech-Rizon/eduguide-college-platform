@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildCollegePlanningResearchById } from '@/lib/firecrawlMagic'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,24 @@ export async function POST(request: Request) {
   if (checklistError) {
     // Non-fatal — shortlist row was created
     console.error('college_checklist_items upsert error:', checklistError)
+  }
+
+  const planningResearch = await buildCollegePlanningResearchById(college.id).catch(() => null)
+  if (planningResearch) {
+    const normalizedDeadline = planningResearch.deadline
+      ? new Date(planningResearch.deadline)
+      : null
+    await sb
+      .from('college_shortlist')
+      .update({
+        notes: `${planningResearch.summary}\n\nSource: ${planningResearch.sourceUrl}`.slice(0, 2000),
+        deadline:
+          normalizedDeadline && !Number.isNaN(normalizedDeadline.getTime())
+            ? normalizedDeadline.toISOString().slice(0, 10)
+            : null,
+      })
+      .eq('id', shortlistRow.id)
+      .eq('user_id', userId)
   }
 
   return NextResponse.json({ ok: true, id: shortlistRow?.id })

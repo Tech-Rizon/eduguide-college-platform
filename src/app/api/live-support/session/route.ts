@@ -3,6 +3,7 @@ import { resolveAccessFromRequest } from "@/lib/accessControl";
 import { createUserScopedSupabaseClient } from "@/lib/supabaseRequest";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { resolveAccess, canAccess, denyAccess } from "@/lib/accessGate";
+import { buildSupportResearchPacket, mergeWithResearchPacket } from "@/lib/firecrawlMagic";
 
 export const dynamic = "force-dynamic";
 
@@ -363,6 +364,14 @@ export async function POST(request: Request) {
     const initialMessage = typeof body?.initialMessage === "string" ? body.initialMessage.trim() : "";
     const rawPriority = typeof body?.priority === "string" ? body.priority : "medium";
     const priority = ALLOWED_PRIORITIES.has(rawPriority) ? rawPriority : "medium";
+    const researchPacket = await buildSupportResearchPacket({
+      message: initialMessage || "Live support request",
+      userId: access.user.id,
+    }).catch(() => "");
+    const storedSupportMessage = mergeWithResearchPacket(
+      initialMessage || "User requested a live chat conversation from the support widget.",
+      researchPacket,
+    );
 
     const supabaseUser = createUserScopedSupabaseClient(request);
 
@@ -388,7 +397,7 @@ export async function POST(request: Request) {
         user_id: access.user.id,
         name: displayName,
         email: requesterEmail,
-        message: initialMessage || "User requested a live chat conversation from the support widget.",
+        message: storedSupportMessage,
         priority,
         source: "live_chat_widget",
       })
@@ -403,7 +412,7 @@ export async function POST(request: Request) {
         userId: access.user.id,
         requesterEmail,
         displayName,
-        initialMessage,
+        initialMessage: storedSupportMessage,
         priority,
       });
     } else if (supportRequestError) {
@@ -418,7 +427,7 @@ export async function POST(request: Request) {
           userId: access.user.id,
           requesterEmail,
           displayName,
-          initialMessage,
+          initialMessage: storedSupportMessage,
           priority,
         });
         ticket = await findSupportRequestTicket(supabaseUser, supportRequest.id);

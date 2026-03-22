@@ -48,7 +48,7 @@ interface CourseDocument {
   id: string;
   name: string;
   file_name: string | null;
-  doc_type: "upload" | "paste";
+  doc_type: "upload" | "paste" | "web";
   char_count: number | null;
   chunk_count: number | null;
   status: "processing" | "ready" | "failed";
@@ -73,6 +73,12 @@ const STATUS_COLORS: Record<string, string> = {
   failed: "bg-red-100 text-red-800",
 };
 
+function getDocumentTypeLabel(docType: CourseDocument["doc_type"]) {
+  if (docType === "upload") return "PDF";
+  if (docType === "web") return "Web import";
+  return "Pasted text";
+}
+
 export default function CourseDetailPage() {
   const params = useParams();
   const courseId = params.id as string;
@@ -92,6 +98,10 @@ export default function CourseDetailPage() {
   const [pasteContent, setPasteContent] = useState("");
   const [isPasting, setIsPasting] = useState(false);
   const [showPasteForm, setShowPasteForm] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importName, setImportName] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [showImportForm, setShowImportForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Chat tab
@@ -242,6 +252,38 @@ export default function CourseDetailPage() {
       toast.error("Could not save text");
     } finally {
       setIsPasting(false);
+    }
+  };
+
+  const handleImportUrl = async () => {
+    if (!session?.access_token || !importUrl.trim()) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/documents/import-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          url: importUrl.trim(),
+          name: importName.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error ?? "Could not import URL");
+        return;
+      }
+      toast.success("Web page imported and indexed!");
+      setImportUrl("");
+      setImportName("");
+      setShowImportForm(false);
+      await fetchDocuments(session.access_token);
+    } catch {
+      toast.error("Could not import URL");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -475,7 +517,7 @@ export default function CourseDetailPage() {
         {/* ── MATERIALS ── */}
         {activeTab === "materials" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* PDF Upload */}
               <Card>
                 <CardContent className="p-6">
@@ -535,6 +577,25 @@ export default function CourseDetailPage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-purple-600" />
+                    Import URL
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Syllabus pages, assignment sites, and public course resources
+                  </p>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => setShowImportForm((v) => !v)}
+                  >
+                    {showImportForm ? "Cancel" : "Import Web Page"}
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Paste Form */}
@@ -585,6 +646,50 @@ export default function CourseDetailPage() {
               </motion.div>
             )}
 
+            {showImportForm && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <div>
+                      <Label htmlFor="import-url">Page URL</Label>
+                      <Input
+                        id="import-url"
+                        placeholder="https://example.edu/course/syllabus"
+                        value={importUrl}
+                        onChange={(e) => setImportUrl(e.target.value)}
+                        className="mt-1"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="import-name">Document Name (optional)</Label>
+                      <Input
+                        id="import-name"
+                        placeholder="e.g. Biology 101 Syllabus"
+                        value={importName}
+                        onChange={(e) => setImportName(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleImportUrl}
+                      disabled={isImporting || !importUrl.trim()}
+                      style={{ backgroundColor: course.color }}
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        "Import & Index"
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Document List */}
             <div>
               <h3 className="font-semibold text-gray-700 mb-3">
@@ -595,7 +700,7 @@ export default function CourseDetailPage() {
                   <CardContent className="py-12 text-center">
                     <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">
-                      No documents yet. Upload a PDF or paste text above.
+                      No documents yet. Upload a PDF, paste text, or import a web page above.
                     </p>
                   </CardContent>
                 </Card>
@@ -609,7 +714,7 @@ export default function CourseDetailPage() {
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 truncate">{doc.name}</p>
                             <p className="text-xs text-gray-400">
-                              {doc.doc_type === "upload" ? "PDF" : "Pasted text"}
+                              {getDocumentTypeLabel(doc.doc_type)}
                               {doc.chunk_count != null ? ` · ${doc.chunk_count} chunks` : ""}
                               {doc.char_count != null
                                 ? ` · ${doc.char_count.toLocaleString()} chars`

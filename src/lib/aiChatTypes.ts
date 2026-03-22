@@ -1,5 +1,6 @@
 import type { UserProfile } from "./aiEngine";
 import type { CollegeEntry } from "./collegeDatabase";
+import type { CollegeMatchResult } from "./collegeMatchTypes";
 
 export interface AIChatSource {
   title: string;
@@ -15,6 +16,7 @@ export interface AIChatTurn {
 export interface AIChatResponse {
   content: string;
   colleges?: CollegeEntry[];
+  matchResults?: CollegeMatchResult[];
   profileUpdates?: Partial<UserProfile>;
   followUpQuestions?: string[];
   sources?: AIChatSource[];

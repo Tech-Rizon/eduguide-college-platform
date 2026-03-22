@@ -1,6 +1,8 @@
 import { processMessage, type UserProfile } from "./aiEngine";
 import { collegeDatabase, type CollegeEntry } from "./collegeDatabase";
+import { matchCollegePrograms, studentMatchProfileFromUserProfile } from "./collegeMatchServer";
 import type { AIChatResponse, AIChatSource, AIChatTurn } from "./aiChatTypes";
+import type { CollegeMatchResult } from "./collegeMatchTypes";
 
 interface ResearchNote {
   college: CollegeEntry;
@@ -143,10 +145,18 @@ function detectAssignmentSupportIntent(message: string): boolean {
   );
 }
 
-function pickResearchColleges(message: string, colleges: CollegeEntry[] | undefined): CollegeEntry[] {
+function pickResearchColleges(
+  message: string,
+  colleges: CollegeEntry[] | undefined,
+  matchResults?: CollegeMatchResult[]
+): CollegeEntry[] {
   const explicitMatches = findMentionedColleges(message);
   if (explicitMatches.length > 0) {
     return explicitMatches.slice(0, MAX_RESEARCH_COLLEGES);
+  }
+
+  if (matchResults?.length) {
+    return matchResults.slice(0, MAX_RESEARCH_COLLEGES).map((result) => result.college);
   }
 
   return (colleges || []).slice(0, MAX_RESEARCH_COLLEGES);
@@ -284,7 +294,20 @@ async function getCollegeResearch(
   return results.filter((result): result is ResearchNote => Boolean(result));
 }
 
-function summarizeCollegeFit(colleges: CollegeEntry[] | undefined): string {
+function summarizeCollegeFit(
+  matchResults: CollegeMatchResult[] | undefined,
+  colleges: CollegeEntry[] | undefined
+): string {
+  if (matchResults?.length) {
+    return matchResults
+      .slice(0, 4)
+      .map(
+        (result) =>
+          `${result.college.name} | ${result.program.programName} | ${result.fitBucket} (${result.fitScore}) | blockers: ${result.blockers.join("; ") || "none"}`
+      )
+      .join("\n");
+  }
+
   if (!colleges?.length) return "No college matches were generated yet.";
 
   return colleges
@@ -324,7 +347,7 @@ function buildPrompt(
     `Recent conversation:\n${history || "No prior conversation."}`,
     `User message: ${input.message}`,
     `Local recommendation engine draft:\n${response.content}`,
-    `Recommended colleges:\n${summarizeCollegeFit(response.colleges)}`,
+    `Recommended colleges:\n${summarizeCollegeFit(response.matchResults, response.colleges)}`,
     `Fresh official-school research:\n${researchBlock}`,
   ].join("\n\n");
 }
@@ -446,6 +469,27 @@ function buildFallbackResponse(
         research.map((item) => `From ${item.college.name}'s site: ${item.summary}`).join("\n\n")
       );
     }
+  } else if (response.matchResults?.length) {
+    const intro = `Here are the best program matches I found${name ? `, ${name}` : ""}:`;
+    lines.push(intro);
+
+    lines.push(
+      response.matchResults
+        .slice(0, 3)
+        .map(
+          (result) =>
+            `**${result.college.name} - ${result.program.programName}** (${result.college.location}) - ${result.fitBucket.replace(/_/g, " ")}. ${result.whyFit.join(" ")}${result.blockers.length ? ` Blockers: ${result.blockers.join(" ")}` : ""}`
+        )
+        .join("\n\n")
+    );
+
+    if (research.length > 0) {
+      lines.push(
+        `From the official sites:\n${research
+          .map((item) => `- **${item.college.name}**: ${item.summary}`)
+          .join("\n")}`
+      );
+    }
   } else if (response.colleges?.length) {
     const profileBits = [
       mergedProfile.gpa ? `GPA ${mergedProfile.gpa}` : null,
@@ -500,15 +544,47 @@ export async function generateAiChatResponse(
   const baseResponse = processMessage(input.message, input.currentProfile, input.userName);
   const profileUpdates = normalizeProfileUpdates(input.currentProfile, baseResponse.profileUpdates);
   const mergedProfile = { ...input.currentProfile, ...profileUpdates };
-  const researchColleges = pickResearchColleges(input.message, baseResponse.colleges);
+  const matchResponse = await matchCollegePrograms({
+    storedProfile: studentMatchProfileFromUserProfile(mergedProfile),
+    query: input.message,
+    limit: 5,
+  }).catch((error) => {
+    console.error("DB-backed college match failed:", error);
+    return null;
+  });
+  const matchResults = matchResponse?.results?.length ? matchResponse.results : undefined;
+  const recommendedColleges = matchResults?.map((result) => result.college) ?? baseResponse.colleges;
+  const researchColleges = pickResearchColleges(input.message, recommendedColleges, matchResults);
   const research = await getCollegeResearch(researchColleges, input.message, mergedProfile);
   const generatedContent =
-    (await generateOpenAIResponse(input, { ...baseResponse, profileUpdates }, mergedProfile, research)) ||
-    buildFallbackResponse(input, { ...baseResponse, profileUpdates }, mergedProfile, research);
+    (await generateOpenAIResponse(
+      input,
+      {
+        ...baseResponse,
+        colleges: recommendedColleges,
+        matchResults,
+        profileUpdates,
+      },
+      mergedProfile,
+      research
+    )) ||
+    buildFallbackResponse(
+      input,
+      {
+        ...baseResponse,
+        colleges: recommendedColleges,
+        matchResults,
+        profileUpdates,
+      },
+      mergedProfile,
+      research
+    );
 
   return {
     ...baseResponse,
+    colleges: recommendedColleges,
     content: generatedContent,
+    matchResults,
     profileUpdates,
     sources: research.map((item) => item.source),
   };

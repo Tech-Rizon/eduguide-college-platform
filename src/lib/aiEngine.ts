@@ -1,4 +1,5 @@
 import { collegeDatabase, type CollegeEntry } from "./collegeDatabase";
+import type { CollegeMatchResult, DegreeLevel, ProgramModality, StudentType } from "./collegeMatchTypes";
 
 export interface UserProfile {
   gpa?: number;
@@ -15,11 +16,23 @@ export interface UserProfile {
   demographics?: string[];
   interests?: string[];
   careerGoals?: string;
+  studentType?: StudentType;
+  degreeLevel?: DegreeLevel;
+  modality?: ProgramModality;
+  startTerm?: string;
+  maxAnnualTuition?: number;
+  currentCollegeName?: string;
+  completedCollegeCredits?: number;
+  hsCompleted?: boolean;
+  needsFinancialAid?: boolean;
+  supportNeeds?: string[];
+  zipCode?: string;
 }
 
 export interface AIResponse {
   content: string;
   colleges?: CollegeEntry[];
+  matchResults?: CollegeMatchResult[];
   profileUpdates?: Partial<UserProfile>;
   followUpQuestions?: string[];
 }
@@ -146,6 +159,19 @@ function extractBudget(message: string): "low" | "medium" | "high" | undefined {
   return undefined;
 }
 
+function extractStudentType(message: string): StudentType | undefined {
+  const lower = message.toLowerCase();
+  if (lower.match(/\b(transfer|transferring|community college transfer|associate to bachelor)\b/)) {
+    return "transfer";
+  }
+
+  if (lower.match(/\b(freshman|first[-\s]?year|high school senior|senior in high school)\b/)) {
+    return "freshman";
+  }
+
+  return undefined;
+}
+
 function extractSchoolType(message: string): string[] | undefined {
   const lower = message.toLowerCase();
   const types: string[] = [];
@@ -170,6 +196,19 @@ function extractSATScore(message: string): number | undefined {
     if (score >= 400 && score <= 1600) return score;
   }
   return undefined;
+}
+
+function extractZipCode(message: string): string | undefined {
+  const match = message.match(/\b(\d{5})(?:-\d{4})?\b/);
+  return match?.[1];
+}
+
+function extractCurrentCollegeName(message: string): string | undefined {
+  const match = message.match(
+    /\b(?:i\s+(?:go|attend|study)\s+at|i(?:'m| am)\s+at|currently\s+at|transferring\s+from)\s+([a-z0-9&,'\-. ]{4,80})(?:[.!?,]|$)/i
+  );
+  const value = match?.[1]?.trim();
+  return value ? value.replace(/\s+/g, " ") : undefined;
 }
 
 function extractACTScore(message: string): number | undefined {
@@ -339,6 +378,12 @@ export function processMessage(
   const budget = extractBudget(userMessage);
   if (budget) profileUpdates.budget = budget;
 
+  const studentType = extractStudentType(userMessage);
+  if (studentType) {
+    profileUpdates.studentType = studentType;
+    profileUpdates.isTransferStudent = studentType === "transfer";
+  }
+
   const schoolType = extractSchoolType(userMessage);
   if (schoolType) profileUpdates.schoolType = schoolType;
 
@@ -347,6 +392,12 @@ export function processMessage(
 
   const actScore = extractACTScore(userMessage);
   if (actScore) profileUpdates.actScore = actScore;
+
+  const zipCode = extractZipCode(userMessage);
+  if (zipCode) profileUpdates.zipCode = zipCode;
+
+  const currentCollegeName = extractCurrentCollegeName(userMessage);
+  if (currentCollegeName) profileUpdates.currentCollegeName = currentCollegeName;
 
   const demographics = extractDemographics(userMessage);
   if (demographics) {

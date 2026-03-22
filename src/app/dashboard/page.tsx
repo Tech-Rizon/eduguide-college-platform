@@ -49,6 +49,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { TrialBanner } from "@/components/ui/TrialBanner";
 import { UpgradePrompt } from "@/components/ui/UpgradePrompt";
+import type { CollegeMatchResult, StudentMatchProfile, StudentType } from "@/lib/collegeMatchTypes";
 import { supabase } from "@/lib/supabaseClient";
 import type { UserProfile } from "@/lib/aiEngine";
 import type { AIChatResponse, AIChatSource } from "@/lib/aiChatTypes";
@@ -60,6 +61,7 @@ interface Message {
   sender: "user" | "ai";
   timestamp: Date;
   colleges?: CollegeEntry[];
+  matchResults?: CollegeMatchResult[];
   sources?: AIChatSource[];
   followUpQuestions?: string[];
 }
@@ -82,6 +84,7 @@ interface UserProfileRecord {
 
 interface ProfileCompletionFormState {
   username: string;
+  studentType: StudentType;
   gpa: string;
   state: string;
   intendedMajor: string;
@@ -119,6 +122,9 @@ function parseStoredUserProfile(rawValue: string | null): Partial<UserProfile> {
     }
     if (typeof parsed.state === "string" && parsed.state.trim()) {
       next.state = parsed.state.trim().toUpperCase();
+    }
+    if (parsed.studentType === "freshman" || parsed.studentType === "transfer") {
+      next.studentType = parsed.studentType;
     }
     if (typeof parsed.intendedMajor === "string" && parsed.intendedMajor.trim()) {
       next.intendedMajor = parsed.intendedMajor.trim();
@@ -183,6 +189,7 @@ export default function DashboardPage() {
   const [profileDialogError, setProfileDialogError] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileCompletionFormState>({
     username: "",
+    studentType: "freshman",
     gpa: "",
     state: "",
     intendedMajor: "",
@@ -267,6 +274,7 @@ export default function DashboardPage() {
     const persisted = {
       gpa: typeof userProfile.gpa === "number" ? userProfile.gpa : undefined,
       state: userProfile.state || undefined,
+      studentType: userProfile.studentType || undefined,
       intendedMajor: userProfile.intendedMajor || undefined,
       budget: userProfile.budget || undefined,
     };
@@ -275,7 +283,14 @@ export default function DashboardPage() {
       getDashboardProfileStorageKey(user.id),
       JSON.stringify(persisted)
     );
-  }, [user?.id, userProfile.gpa, userProfile.state, userProfile.intendedMajor, userProfile.budget]);
+  }, [
+    user?.id,
+    userProfile.gpa,
+    userProfile.state,
+    userProfile.studentType,
+    userProfile.intendedMajor,
+    userProfile.budget,
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -326,6 +341,71 @@ export default function DashboardPage() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      fetch("/api/match-profile", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as {
+            profile?: StudentMatchProfile | null;
+            error?: string;
+          };
+          if (!response.ok) throw new Error(payload.error || "Failed to load match profile");
+          return payload.profile ?? null;
+        })
+        .then((profile) => {
+          if (!profile || cancelled) return;
+
+          setUserProfile((prev) => ({
+            ...prev,
+            gpa: typeof profile.gpa === "number" ? profile.gpa : prev.gpa,
+            state: profile.residencyState || prev.state,
+            preferredStates: profile.targetStates?.length ? profile.targetStates : prev.preferredStates,
+            studentType: profile.studentType || prev.studentType,
+            intendedMajor: profile.intendedProgram || prev.intendedMajor,
+            budget: profile.budgetLevel || prev.budget,
+            degreeLevel: profile.degreeLevel || prev.degreeLevel,
+            modality: profile.modality || prev.modality,
+            startTerm: profile.startTerm || prev.startTerm,
+            maxAnnualTuition:
+              typeof profile.maxAnnualTuition === "number"
+                ? profile.maxAnnualTuition
+                : prev.maxAnnualTuition,
+            completedCollegeCredits:
+              typeof profile.completedCollegeCredits === "number"
+                ? profile.completedCollegeCredits
+                : prev.completedCollegeCredits,
+            currentCollegeName: profile.currentCollegeName || prev.currentCollegeName,
+            hsCompleted:
+              typeof profile.hsCompleted === "boolean" ? profile.hsCompleted : prev.hsCompleted,
+            needsFinancialAid:
+              typeof profile.needsFinancialAid === "boolean"
+                ? profile.needsFinancialAid
+                : prev.needsFinancialAid,
+            supportNeeds: profile.supportNeeds?.length ? profile.supportNeeds : prev.supportNeeds,
+          }));
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            console.error("Failed to load match profile:", error);
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Load saved college IDs for "Add to Plan" button state
   useEffect(() => {
     if (!session?.access_token || !user?.id) return;
@@ -345,6 +425,7 @@ export default function DashboardPage() {
     setProfileDialogError(null);
     setProfileForm({
       username: profileRecord?.username || "",
+      studentType: userProfile.studentType || "freshman",
       gpa: typeof userProfile.gpa === "number" ? String(userProfile.gpa) : "",
       state: userProfile.state || "",
       intendedMajor: userProfile.intendedMajor || "",
@@ -393,9 +474,34 @@ export default function DashboardPage() {
         }),
       });
 
+      const matchProfileResponse = await fetch("/api/match-profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          studentType: profileForm.studentType,
+          residencyState: profileForm.state.trim().toUpperCase() || null,
+          targetStates: profileForm.state.trim() ? [profileForm.state.trim().toUpperCase()] : [],
+          intendedProgram: profileForm.intendedMajor.trim() || null,
+          gpa: parsedGpa ?? null,
+          budgetLevel: profileForm.budget || null,
+          needsFinancialAid: profileForm.budget === "low",
+        }),
+      });
+
       const payload = (await response.json().catch(() => ({}))) as { profile?: UserProfileRecord; error?: string };
       if (!response.ok) {
         throw new Error(payload.error || "Failed to save profile details");
+      }
+
+      const matchPayload = (await matchProfileResponse.json().catch(() => ({}))) as {
+        profile?: StudentMatchProfile;
+        error?: string;
+      };
+      if (!matchProfileResponse.ok) {
+        throw new Error(matchPayload.error || "Failed to save match profile");
       }
 
       setProfileRecord(payload.profile || {
@@ -408,6 +514,7 @@ export default function DashboardPage() {
       setUserProfile((prev) => {
         const next = { ...prev };
 
+        next.studentType = profileForm.studentType;
         if (parsedGpa !== undefined) next.gpa = parsedGpa;
         else delete next.gpa;
 
@@ -421,6 +528,14 @@ export default function DashboardPage() {
 
         if (profileForm.budget) next.budget = profileForm.budget;
         else delete next.budget;
+
+        if (matchPayload.profile?.degreeLevel) {
+          next.degreeLevel = matchPayload.profile.degreeLevel;
+        }
+
+        if (matchPayload.profile?.modality) {
+          next.modality = matchPayload.profile.modality;
+        }
 
         return next;
       });
@@ -545,6 +660,7 @@ export default function DashboardPage() {
           sender: "ai",
           timestamp: new Date(),
           colleges: payload.colleges,
+          matchResults: payload.matchResults,
           sources: payload.sources,
           followUpQuestions: payload.followUpQuestions,
         },
@@ -589,16 +705,20 @@ export default function DashboardPage() {
     );
   }
 
-  const collegesExplored = messages.reduce((acc, msg) => acc + (msg.colleges?.length || 0), 0);
+  const collegesExplored = messages.reduce(
+    (acc, msg) => acc + (msg.matchResults?.length || msg.colleges?.length || 0),
+    0
+  );
   const hasUsername = Boolean(profileRecord?.username);
   const profileCompleteness = [
     profileRecord?.username,
+    userProfile.studentType,
     userProfile.gpa,
     userProfile.state,
     userProfile.intendedMajor,
     userProfile.budget,
   ].filter(Boolean).length;
-  const profileCompletenessWidthClass = ["w-0", "w-1/5", "w-2/5", "w-3/5", "w-4/5", "w-full"][profileCompleteness];
+  const profileCompletenessWidth = `${Math.round((profileCompleteness / 6) * 100)}%`;
   const displayName = profileRecord?.username
     ? `@${profileRecord.username}`
     : `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -610,6 +730,7 @@ export default function DashboardPage() {
   ).toUpperCase();
   const missingProfileFields = [
     !hasUsername ? "username" : null,
+    !userProfile.studentType ? "student type" : null,
     !userProfile.gpa ? "GPA" : null,
     !userProfile.state ? "state" : null,
     !userProfile.intendedMajor ? "major" : null,
@@ -617,7 +738,7 @@ export default function DashboardPage() {
   ].filter(Boolean) as string[];
 
   const nextBestStep = (() => {
-    if (profileCompleteness < 5) {
+    if (profileCompleteness < 6) {
       return {
         title: "Complete Your Profile",
         detail: `Add ${missingProfileFields.join(", ")} to unlock better matches and student guidance.`,
@@ -699,16 +820,23 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                      className={`bg-blue-600 h-2 rounded-full transition-all duration-500 ${profileCompletenessWidthClass}`}
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: profileCompletenessWidth }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500">{profileCompleteness}/5 details shared</p>
+                  <p className="text-xs text-gray-500">{profileCompleteness}/6 details shared</p>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Username</span>
                       <Badge variant={profileRecord?.username ? "default" : "secondary"}>
                         {profileRecord?.username ? `@${profileRecord.username}` : "Not set"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Student Type</span>
+                      <Badge variant={userProfile.studentType ? "default" : "secondary"}>
+                        {userProfile.studentType || "Not set"}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
@@ -992,7 +1120,158 @@ export default function DashboardPage() {
                               </div>
                             )}
 
-                            {message.colleges && message.colleges.length > 0 && (
+                            {message.matchResults && message.matchResults.length > 0 && (
+                              <div className="mt-4 space-y-3">
+                                {message.matchResults.map((result) => (
+                                  <Card
+                                    key={`${result.college.id}-${result.program.id}`}
+                                    className="bg-white border shadow-sm"
+                                  >
+                                    <CardContent className="p-4">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <h4 className="font-semibold text-gray-900 flex items-center gap-1">
+                                            {result.college.name}
+                                            <a
+                                              href={
+                                                result.program.admissionsUrl ||
+                                                result.program.programUrl ||
+                                                result.college.website
+                                              }
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800"
+                                              title={`Visit ${result.college.name} website`}
+                                              aria-label={`Visit ${result.college.name} website`}
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                              <span className="sr-only">
+                                                Visit {result.college.name} website
+                                              </span>
+                                            </a>
+                                          </h4>
+                                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                                            <Badge variant="secondary">{result.program.programName}</Badge>
+                                            <Badge variant="outline">
+                                              {result.fitBucket.replace(/_/g, " ")}
+                                            </Badge>
+                                            <Badge variant="outline">Score {result.fitScore}</Badge>
+                                          </div>
+                                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                              <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                                              {result.college.location}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <BookOpen className="h-3 w-3 mr-1 shrink-0" />
+                                              {result.program.modality === "any"
+                                                ? `${result.college.type} | ${result.program.degreeLevel}`
+                                                : `${result.college.type} | ${result.program.degreeLevel} | ${result.program.modality.replace("_", " ")}`}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <DollarSign className="h-3 w-3 mr-1 shrink-0" />
+                                              {result.college.tuition}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <Users className="h-3 w-3 mr-1 shrink-0" />
+                                              Acceptance: {result.college.acceptanceRate} | Graduation:{" "}
+                                              {result.college.graduationRate}%
+                                            </div>
+                                            {result.program.applicationDeadline && (
+                                              <div className="flex items-center">
+                                                <TrendingUp className="h-3 w-3 mr-1 shrink-0" />
+                                                Deadline: {result.program.applicationDeadline}
+                                              </div>
+                                            )}
+                                          </div>
+                                          {result.whyFit.length > 0 && (
+                                            <div className="mt-3 rounded-md bg-emerald-50 p-3 text-xs text-emerald-900">
+                                              <p className="font-semibold">Why it fits</p>
+                                              <p className="mt-1">{result.whyFit.join(" ")}</p>
+                                            </div>
+                                          )}
+                                          {result.blockers.length > 0 && (
+                                            <div className="mt-3 rounded-md bg-amber-50 p-3 text-xs text-amber-900">
+                                              <p className="font-semibold">Blockers to review</p>
+                                              <p className="mt-1">{result.blockers.join(" ")}</p>
+                                            </div>
+                                          )}
+                                          {result.nextSteps.length > 0 && (
+                                            <div className="mt-3 rounded-md bg-slate-50 p-3 text-xs text-slate-700">
+                                              <p className="font-semibold">Next steps</p>
+                                              <p className="mt-1">{result.nextSteps.join(" ")}</p>
+                                            </div>
+                                          )}
+                                          <p className="mt-2 text-xs text-gray-500">
+                                            Freshness: {result.freshness.status}
+                                            {result.freshness.lastScrapedAt
+                                              ? ` • Updated ${new Date(result.freshness.lastScrapedAt).toLocaleDateString()}`
+                                              : ""}
+                                          </p>
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {result.college.majors.slice(0, 4).map((major) => (
+                                              <Badge key={major} variant="secondary" className="text-xs">
+                                                {major}
+                                              </Badge>
+                                            ))}
+                                            {result.college.majors.length > 4 && (
+                                              <Badge variant="secondary" className="text-xs">
+                                                +{result.college.majors.length - 4} more
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="ml-3 flex flex-col items-center">
+                                          <div className="flex items-center space-x-1">
+                                            <Star className="h-4 w-4 fill-current text-yellow-500" />
+                                            <span className="text-sm font-medium">
+                                              #{result.college.ranking}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <p className="mt-2 text-xs text-gray-500">
+                                        {result.college.description}
+                                      </p>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant={
+                                            savedCollegeIds.has(result.college.id)
+                                              ? "secondary"
+                                              : "outline"
+                                          }
+                                          className="text-xs"
+                                          onClick={() => handleAddToMyPlan(result.college)}
+                                          disabled={savedCollegeIds.has(result.college.id)}
+                                        >
+                                          {savedCollegeIds.has(result.college.id)
+                                            ? "In My Plan"
+                                            : "Save to My Plan"}
+                                        </Button>
+                                        {(result.program.admissionsUrl || result.program.programUrl) && (
+                                          <Button asChild size="sm" variant="ghost" className="text-xs">
+                                            <a
+                                              href={
+                                                result.program.admissionsUrl ||
+                                                result.program.programUrl ||
+                                                result.college.website
+                                              }
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              View Requirements
+                                            </a>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+
+                            {!message.matchResults?.length && message.colleges && message.colleges.length > 0 && (
                               <div className="mt-4 space-y-3">
                                 {message.colleges.map((college) => (
                                   <Card key={college.id} className="bg-white border shadow-sm">
@@ -1179,6 +1458,24 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="dashboard-student-type">Student Type</Label>
+                <select
+                  id="dashboard-student-type"
+                  aria-label="Student Type"
+                  value={profileForm.studentType}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      studentType: e.target.value as StudentType,
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="freshman">Freshman</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="dashboard-gpa">GPA</Label>
                 <Input
                   id="dashboard-gpa"
@@ -1206,7 +1503,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dashboard-major">Intended Major</Label>
+              <Label htmlFor="dashboard-major">Intended Program</Label>
               <Input
                 id="dashboard-major"
                 value={profileForm.intendedMajor}

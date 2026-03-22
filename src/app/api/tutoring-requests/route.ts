@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildSupportResearchPacket, mergeWithResearchPacket } from '@/lib/firecrawlMagic'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,6 +90,13 @@ export async function POST(request: Request) {
 
     const resolvedPriority = ALLOWED_PRIORITIES.has(priority) ? priority : 'medium'
     const resolvedCategory = ALLOWED_CATEGORIES.has(category) ? category : 'general'
+    const tutoringMessage = [subject, description]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join('\n\n')
+    const researchPacket = await buildSupportResearchPacket({
+      message: tutoringMessage,
+      userId: authenticatedUserId,
+    }).catch(() => '')
 
     const sb = await getSupabaseServer()
     if (!sb) {
@@ -102,7 +110,9 @@ export async function POST(request: Request) {
           user_id: authenticatedUserId,
           category: resolvedCategory,
           subject: subject.trim(),
-          description: description ? String(description).trim() : null,
+          description:
+            mergeWithResearchPacket(description ? String(description).trim() : '', researchPacket) ||
+            null,
           priority: resolvedPriority,
           status: 'new'
         }

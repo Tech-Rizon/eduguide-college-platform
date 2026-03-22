@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer'
+import { buildSupportResearchPacket, mergeWithResearchPacket } from '@/lib/firecrawlMagic'
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,11 @@ export async function POST(request: Request) {
     const resolvedUserId = typeof userId === 'string' && userId.length > 0 ? userId : null
 
     const resolvedPriority = ALLOWED_PRIORITIES.has(priority) ? priority : 'medium'
+    const researchPacket = await buildSupportResearchPacket({
+      message: trimmedMessage,
+      userId: resolvedUserId,
+    }).catch(() => '')
+    const storedMessage = mergeWithResearchPacket(trimmedMessage, researchPacket)
 
     const { data: supportRequest, error: insertError } = await supabaseServer
       .from('support_requests')
@@ -47,7 +53,7 @@ export async function POST(request: Request) {
         user_id: resolvedUserId,
         name: trimmedName,
         email: trimmedEmail,
-        message: trimmedMessage,
+        message: storedMessage,
         priority: resolvedPriority,
         source: 'contact_form',
       })

@@ -4,6 +4,7 @@ import {
   upsertCollegeCatalog,
   type CollegeCatalogUpsertInput,
 } from "@/lib/collegeCatalogServer";
+import { syncCollegeProgramsFromColleges } from "@/lib/collegeProgramCatalogServer";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 interface FirecrawlScrapePayload {
@@ -178,12 +179,24 @@ export async function runCollegeCatalogImport(
   }
 
   const imported = await upsertCollegeCatalog(prepared);
+  const programSync = await syncCollegeProgramsFromColleges(imported).catch((error) => {
+    console.error("college program sync failed after catalog import:", error);
+    return { programs: [], requirements: [] };
+  });
 
   return {
     ok: true,
     importedCount: imported.length,
     preparedCount: prepared.length,
-    results,
+    results: [
+      ...results,
+      {
+        status: "prepared",
+        kind: "program-sync",
+        programs: programSync.programs.length,
+        requirements: programSync.requirements.length,
+      },
+    ],
   };
 }
 

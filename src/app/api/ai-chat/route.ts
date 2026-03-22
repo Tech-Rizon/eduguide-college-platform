@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateAiChatResponse } from "@/lib/aiChatServer";
 import type { AIChatTurn } from "@/lib/aiChatTypes";
 import type { UserProfile } from "@/lib/aiEngine";
+import { studentMatchProfileFromUserProfile, upsertStudentMatchProfile } from "@/lib/collegeMatchServer";
 
 export const runtime = "nodejs";
 
@@ -70,13 +71,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required." }, { status: 400 });
     }
 
+    const currentProfile = body.currentProfile || {};
     const result = await generateAiChatResponse({
-      currentProfile: body.currentProfile || {},
+      currentProfile,
       history: sanitizeHistory(body.history),
       message: message.slice(0, 4000),
       mode: body.mode === "demo" ? "demo" : userId ? "dashboard" : "demo",
       userName: typeof body.userName === "string" ? body.userName.trim().slice(0, 80) : undefined,
     });
+
+    if (userId) {
+      const mergedProfile = { ...currentProfile, ...(result.profileUpdates || {}) };
+      await upsertStudentMatchProfile(userId, studentMatchProfileFromUserProfile(mergedProfile)).catch(
+        (error) => {
+          console.error("Failed to persist chat-derived match profile:", error);
+        }
+      );
+    }
 
     return NextResponse.json(result);
   } catch (error) {
