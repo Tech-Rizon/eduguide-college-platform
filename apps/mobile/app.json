@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "EduGuide",
+    "slug": "eduguide-mobile",
+    "scheme": "eduguide",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "online.eduguide.mobile"
+    },
+    "android": {
+      "package": "online.eduguide.mobile"
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
+    }
+  }
+}

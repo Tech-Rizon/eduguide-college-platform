@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { findBackofficeTicketBySource, runBackofficeTicketTriage } from '@/lib/aiTriageServer'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { buildSupportResearchPacket, mergeWithResearchPacket } from '@/lib/firecrawlMagic'
 
@@ -62,6 +63,15 @@ export async function POST(request: Request) {
 
     if (insertError) {
       return NextResponse.json({ error: 'Failed to store support request' }, { status: 500 })
+    }
+
+    const linkedTicket = await findBackofficeTicketBySource('support_request', supportRequest.id).catch(() => null)
+    if (linkedTicket) {
+      await runBackofficeTicketTriage(linkedTicket.id, {
+        requestedByUserId: resolvedUserId,
+      }).catch((error) => {
+        console.error('Contact-form AI triage failed:', error)
+      })
     }
 
     // Send email via SendGrid if configured

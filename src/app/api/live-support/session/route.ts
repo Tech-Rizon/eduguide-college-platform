@@ -3,6 +3,7 @@ import { resolveAccessFromRequest } from "@/lib/accessControl";
 import { createUserScopedSupabaseClient } from "@/lib/supabaseRequest";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { resolveAccess, canAccess, denyAccess } from "@/lib/accessGate";
+import { runBackofficeTicketTriage } from "@/lib/aiTriageServer";
 import { buildSupportResearchPacket, mergeWithResearchPacket } from "@/lib/firecrawlMagic";
 
 export const dynamic = "force-dynamic";
@@ -452,6 +453,12 @@ export async function POST(request: Request) {
     if (!ticket) {
       return NextResponse.json({ error: "Live support ticket could not be loaded after assignment step." }, { status: 500 });
     }
+
+    await runBackofficeTicketTriage(ticket.id, {
+      requestedByUserId: access.user.id,
+    }).catch((error) => {
+      console.error("Live-support AI triage failed:", error);
+    });
 
     const starterMessage = initialMessage || "I would like to speak with a support agent.";
     await appendPublicMessage(supabaseUser, ticket.id, access.user.id, starterMessage);

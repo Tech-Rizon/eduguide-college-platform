@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { findBackofficeTicketBySource, runBackofficeTicketTriage } from '@/lib/aiTriageServer'
 import { buildSupportResearchPacket, mergeWithResearchPacket } from '@/lib/firecrawlMagic'
 
 export const dynamic = 'force-dynamic'
@@ -121,7 +122,21 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({ request: data?.[0] }, { status: 201 })
+    const createdRequest = data?.[0]
+    if (createdRequest?.id) {
+      const linkedTicket = await findBackofficeTicketBySource('tutoring_request', createdRequest.id).catch(
+        () => null
+      )
+      if (linkedTicket) {
+        await runBackofficeTicketTriage(linkedTicket.id, {
+          requestedByUserId: authenticatedUserId,
+        }).catch((triageError) => {
+          console.error('Tutoring-request AI triage failed:', triageError)
+        })
+      }
+    }
+
+    return NextResponse.json({ request: createdRequest }, { status: 201 })
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Failed to create request'
     return NextResponse.json({ error: errorMsg }, { status: 500 })

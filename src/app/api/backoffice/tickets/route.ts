@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { resolveAccessFromRequest, canViewAllTickets, canManageTickets, toAssignedTeam } from '@/lib/accessControl'
+import { runBackofficeTicketTriage } from '@/lib/aiTriageServer'
 import { createUserScopedSupabaseClient } from '@/lib/supabaseRequest'
 
 export const dynamic = 'force-dynamic'
@@ -119,6 +120,12 @@ export async function POST(request: Request) {
           assigned_team: assignedTeam,
         },
       })
+
+    await runBackofficeTicketTriage(data.id, {
+      requestedByUserId: access.user.id,
+    }).catch((error) => {
+      console.error('Manual ticket AI triage failed:', error)
+    })
 
     return NextResponse.json({ ticket: data }, { status: 201 })
   } catch (error) {

@@ -32,6 +32,19 @@ type InternalNote = {
   created_at: string;
 };
 
+type TicketTriageSnapshot = {
+  ai_triage_status: "not_requested" | "pending" | "complete" | "failed";
+  ai_triage_intent: string | null;
+  ai_triage_specialty: "support" | "tutor" | null;
+  ai_triage_risk_level: "low" | "medium" | "high" | null;
+  ai_triage_urgency_score: number | null;
+  ai_triage_confidence: number | null;
+  ai_triage_summary: string | null;
+  ai_triage_draft_reply: string | null;
+  ai_triage_last_error: string | null;
+  ai_triage_updated_at: string | null;
+};
+
 export function TicketThreadPanel({
   ticketId,
   accessToken,
@@ -43,12 +56,14 @@ export function TicketThreadPanel({
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [notes, setNotes] = useState<InternalNote[]>([]);
+  const [ticket, setTicket] = useState<TicketTriageSnapshot | null>(null);
   const [publicMessage, setPublicMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [visibility, setVisibility] = useState<"public" | "internal">("public");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [triaging, setTriaging] = useState(false);
 
   const authHeaders = useMemo(
     () => ({
@@ -80,6 +95,7 @@ export function TicketThreadPanel({
       }
 
       const messagePayload = await messagesRes.json();
+      setTicket(messagePayload?.ticket ?? null);
       setMessages(messagePayload?.messages ?? []);
 
       if (notesRes) {
@@ -210,6 +226,30 @@ export function TicketThreadPanel({
     }
   };
 
+  const runAiTriage = async () => {
+    if (!accessToken) return;
+
+    setTriaging(true);
+    try {
+      const res = await fetch("/api/backoffice/tickets/triage", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ ticketId }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to run AI triage.");
+      }
+      toast.success("AI triage updated.");
+      await loadThread();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to run AI triage.";
+      toast.error(message);
+    } finally {
+      setTriaging(false);
+    }
+  };
+
   const openAttachment = async (attachmentId: string) => {
     try {
       const res = await fetch("/api/backoffice/tickets/attachments/download-url", {
@@ -237,6 +277,96 @@ export function TicketThreadPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="rounded-md border border-slate-700 bg-slate-800 p-3 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-100">AI Triage</p>
+              <p className="text-xs text-slate-400">
+                {ticket?.ai_triage_updated_at
+                  ? `Last updated ${new Date(ticket.ai_triage_updated_at).toLocaleString()}`
+                  : "No triage run has been saved yet."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={runAiTriage}
+              disabled={triaging}
+              className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+            >
+              {triaging ? "Running..." : ticket?.ai_triage_status === "complete" ? "Re-run AI Triage" : "Run AI Triage"}
+            </Button>
+          </div>
+
+          {ticket?.ai_triage_status === "complete" ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {ticket.ai_triage_intent && (
+                  <Badge className="bg-blue-500/20 text-blue-300">
+                    {ticket.ai_triage_intent.replace(/_/g, " ")}
+                  </Badge>
+                )}
+                {ticket.ai_triage_specialty && (
+                  <Badge className="bg-violet-500/20 text-violet-300">
+                    {ticket.ai_triage_specialty} specialist
+                  </Badge>
+                )}
+                {ticket.ai_triage_risk_level && (
+                  <Badge className="bg-amber-500/20 text-amber-300">
+                    risk: {ticket.ai_triage_risk_level}
+                  </Badge>
+                )}
+                {typeof ticket.ai_triage_urgency_score === "number" && (
+                  <Badge className="bg-red-500/20 text-red-300">
+                    urgency {ticket.ai_triage_urgency_score}
+                  </Badge>
+                )}
+              </div>
+
+              {ticket.ai_triage_summary && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Summary</p>
+                  <p className="text-sm text-slate-100 mt-1 whitespace-pre-wrap">
+                    {ticket.ai_triage_summary}
+                  </p>
+                </div>
+              )}
+
+              {ticket.ai_triage_draft_reply && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Draft Reply</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-slate-700 bg-transparent text-slate-100 hover:bg-slate-700 hover:text-slate-100"
+                      onClick={() => {
+                        setVisibility("public");
+                        setPublicMessage(ticket.ai_triage_draft_reply ?? "");
+                      }}
+                    >
+                      Use Draft
+                    </Button>
+                  </div>
+                  <p className="text-sm text-slate-100 whitespace-pre-wrap">
+                    {ticket.ai_triage_draft_reply}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : ticket?.ai_triage_status === "failed" ? (
+            <p className="text-sm text-amber-300 whitespace-pre-wrap">
+              {ticket.ai_triage_last_error ?? "AI triage failed."}
+            </p>
+          ) : ticket?.ai_triage_status === "pending" ? (
+            <p className="text-sm text-slate-300">AI triage is currently running.</p>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Run triage to classify the ticket, generate a staff summary, and prepare a first-draft reply.
+            </p>
+          )}
+        </div>
+
         {loading ? (
           <p className="text-sm text-slate-400">Loading thread...</p>
         ) : (

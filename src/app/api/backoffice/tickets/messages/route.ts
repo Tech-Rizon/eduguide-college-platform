@@ -24,7 +24,9 @@ export async function GET(request: Request) {
 
     const { data: ticket, error: ticketError } = await supabaseUser
       .from('backoffice_tickets')
-      .select('id, is_sensitive')
+      .select(
+        'id, is_sensitive, ai_triage_status, ai_triage_intent, ai_triage_specialty, ai_triage_risk_level, ai_triage_urgency_score, ai_triage_confidence, ai_triage_summary, ai_triage_draft_reply, ai_triage_last_error, ai_triage_updated_at'
+      )
       .eq('id', ticketId)
       .single()
 
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
       })
     }
 
-    return NextResponse.json({ messages: messagePayload })
+    return NextResponse.json({ ticket, messages: messagePayload })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load ticket thread'
     return NextResponse.json({ error: message }, { status: 500 })

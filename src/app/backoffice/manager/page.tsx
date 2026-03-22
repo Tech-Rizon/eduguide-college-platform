@@ -51,6 +51,12 @@ type BackofficeTicket = {
   resolution_due_at: string | null;
   breach_at: string | null;
   escalated_at: string | null;
+  ai_triage_status?: "not_requested" | "pending" | "complete" | "failed";
+  ai_triage_intent?: string | null;
+  ai_triage_risk_level?: string | null;
+  ai_triage_specialty?: "support" | "tutor" | null;
+  ai_triage_urgency_score?: number | null;
+  ai_triage_summary?: string | null;
 };
 
 const PRIORITY_BADGE_CLASSES: Record<string, string> = {
@@ -575,6 +581,46 @@ export default function ManagerDashboardPage() {
                     )}
                     {ticket.description && (
                       <p className="text-sm text-slate-300 mt-2 line-clamp-2">{ticket.description}</p>
+                    )}
+                    {ticket.ai_triage_summary && (
+                      <p className="text-sm text-emerald-200/90 mt-2 line-clamp-2">
+                        AI triage: {ticket.ai_triage_summary}
+                      </p>
+                    )}
+                    {(ticket.ai_triage_status === "pending" || ticket.ai_triage_status === "failed") && (
+                      <p
+                        className={`mt-2 text-xs ${
+                          ticket.ai_triage_status === "failed" ? "text-amber-300" : "text-slate-400"
+                        }`}
+                      >
+                        {ticket.ai_triage_status === "failed"
+                          ? "AI triage failed. Open thread to retry."
+                          : "AI triage pending..."}
+                      </p>
+                    )}
+                    {ticket.ai_triage_status === "complete" && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {ticket.ai_triage_intent && (
+                          <Badge className="bg-blue-500/20 text-blue-300">
+                            {ticket.ai_triage_intent.replace(/_/g, " ")}
+                          </Badge>
+                        )}
+                        {ticket.ai_triage_specialty && (
+                          <Badge className="bg-violet-500/20 text-violet-300">
+                            {ticket.ai_triage_specialty}
+                          </Badge>
+                        )}
+                        {ticket.ai_triage_risk_level && (
+                          <Badge className="bg-amber-500/20 text-amber-300">
+                            risk {ticket.ai_triage_risk_level}
+                          </Badge>
+                        )}
+                        {typeof ticket.ai_triage_urgency_score === "number" && (
+                          <Badge className="bg-red-500/20 text-red-300">
+                            urgency {ticket.ai_triage_urgency_score}
+                          </Badge>
+                        )}
+                      </div>
                     )}
                     <p className="mt-2 text-xs text-slate-300">
                       {assignedEmail ? `Assigned to ${assignedEmail}` : "Awaiting assignment"}{" "}
