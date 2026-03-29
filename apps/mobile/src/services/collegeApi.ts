@@ -1,7 +1,5 @@
 import type { CollegeSearchParams, CollegeSummary, StudentProfile } from "@types";
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+import { apiJson } from "@services/apiClient";
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== "false";
 
 const MOCK_COLLEGES: CollegeSummary[] = [
@@ -105,7 +103,7 @@ export async function getRecommendedColleges(profile: StudentProfile): Promise<C
     return MOCK_COLLEGES.slice(0, 3);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/colleges/match`, {
+  const payload = await apiJson<{ results?: any[] }>("/api/colleges/match", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -123,12 +121,6 @@ export async function getRecommendedColleges(profile: StudentProfile): Promise<C
       }
     })
   });
-
-  if (!response.ok) {
-    throw new Error("Failed to load recommended colleges.");
-  }
-
-  const payload = await response.json();
   return (payload.results ?? []).map(mapMatchResult);
 }
 
@@ -150,7 +142,7 @@ export async function searchColleges(
   }
 
   if (profile || params.useMatchEndpoint) {
-    const response = await fetch(`${API_BASE_URL}/api/colleges/match`, {
+    const payload = await apiJson<{ results?: any[] }>("/api/colleges/match", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -170,12 +162,6 @@ export async function searchColleges(
           : undefined
       })
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to search colleges.");
-    }
-
-    const payload = await response.json();
     return (payload.results ?? []).map(mapMatchResult);
   }
 
@@ -184,11 +170,6 @@ export async function searchColleges(
   if (params.state) searchParams.set("state", params.state);
   if (params.limit) searchParams.set("limit", String(params.limit));
 
-  const response = await fetch(`${API_BASE_URL}/api/colleges?${searchParams.toString()}`);
-  if (!response.ok) {
-    throw new Error("Failed to search college catalog.");
-  }
-
-  const payload = await response.json();
+  const payload = await apiJson<{ colleges?: any[] }>(`/api/colleges?${searchParams.toString()}`);
   return (payload.colleges ?? []).map(mapCatalogItem);
 }

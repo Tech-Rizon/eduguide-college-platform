@@ -1,0 +1,7 @@
+node_modules/
+.expo/
+.gradle-mobile/
+/android
+android/.gradle/
+android/.gradle-mobile/
+android/app/build/

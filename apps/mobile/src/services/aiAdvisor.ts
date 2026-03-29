@@ -1,7 +1,5 @@
 import type { AdvisorResponse, ChatMessage, CollegeSummary, StudentProfile } from "@types";
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+import { apiJson } from "@services/apiClient";
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== "false";
 
 function mapRecommendedCollege(result: any): CollegeSummary {
@@ -56,7 +54,7 @@ export async function getAdvisorResponse(
     return buildMockResponse(profile);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/ai-chat`, {
+  const payload = await apiJson<any>("/api/ai-chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -83,12 +81,6 @@ export async function getAdvisorResponse(
       userName: profile?.name || undefined
     })
   });
-
-  if (!response.ok) {
-    throw new Error("Advisor response failed.");
-  }
-
-  const payload = await response.json();
   const text = payload.response?.content ?? payload.content ?? "I could not generate a reply.";
   const suggestions = payload.response?.suggestions ?? payload.suggestions ?? generateSuggestions(text);
   const recommendedColleges = (payload.response?.matchResults ?? payload.matchResults ?? []).map(

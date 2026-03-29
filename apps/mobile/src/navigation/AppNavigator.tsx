@@ -1,5 +1,5 @@
 import React from "react";
-import { Text } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -123,7 +123,25 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const isLoading = useProfileStore((state) => state.isLoading);
   const isOnboarded = useProfileStore((state) => state.isOnboarded);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bg,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12
+        }}
+      >
+        <ActivityIndicator color={colors.accent} />
+        <Text style={{ color: colors.textSecondary }}>Loading your profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>

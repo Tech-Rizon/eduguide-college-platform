@@ -18,7 +18,7 @@ export function CollegeCard({
           <Text style={styles.name}>{college.name}</Text>
           <Text style={styles.meta}>
             {college.city}, {college.state}
-            {college.programName ? ` • ${college.programName}` : ""}
+            {college.programName ? ` - ${college.programName}` : ""}
           </Text>
         </View>
         {typeof college.fitScore === "number" ? (

@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { setupNotifications } from "./src/services/notifications";
+import { useAuthStore } from "./src/store/useAuthStore";
 import { useDeadlineStore } from "./src/store/useDeadlineStore";
 import { useProfileStore } from "./src/store/useProfileStore";
 import { colors } from "./src/theme";
@@ -23,14 +24,32 @@ const mobileTheme = {
 };
 
 export default function App() {
+  const initializeAuth = useAuthStore((state) => state.initialize);
   const loadProfile = useProfileStore((state) => state.loadProfile);
   const loadDeadlines = useDeadlineStore((state) => state.load);
 
   useEffect(() => {
-    void loadProfile();
-    void loadDeadlines();
-    void setupNotifications();
-  }, [loadDeadlines, loadProfile]);
+    let cleanup: (() => void) | undefined;
+    let active = true;
+
+    void (async () => {
+      await loadProfile();
+      await loadDeadlines();
+      void setupNotifications();
+
+      const unsubscribe = await initializeAuth();
+      if (active) {
+        cleanup = unsubscribe;
+      } else {
+        unsubscribe?.();
+      }
+    })();
+
+    return () => {
+      active = false;
+      cleanup?.();
+    };
+  }, [initializeAuth, loadDeadlines, loadProfile]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -64,3 +64,17 @@ logs
 .claude/*.local.json
 .vercel
 .env*.local
+
+# Mobile workspace
+apps/mobile/node_modules/
+apps/mobile/.expo/
+apps/mobile/.gradle-mobile/
+apps/mobile/dist/
+apps/mobile/dist-ios/
+apps/mobile/credentials.json
+apps/mobile/credentials/
+apps/mobile/android/.gradle/
+apps/mobile/android/.gradle-mobile/
+apps/mobile/android/app/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/

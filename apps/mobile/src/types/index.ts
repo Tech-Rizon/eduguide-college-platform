@@ -1,4 +1,5 @@
 export type StudentType = "freshman" | "transfer";
+export type OnboardingAction = "register" | "google" | "signin";
 export type CollegeSize = "small" | "medium" | "large";
 export type CollegeType =
   | "public"
@@ -14,6 +15,7 @@ export interface StudentProfile {
   id: string;
   name: string;
   email: string;
+  onboardingAction: OnboardingAction;
   studentType: StudentType;
   gpa: number;
   satScore?: number;

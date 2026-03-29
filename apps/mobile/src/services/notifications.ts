@@ -5,9 +5,13 @@ import { format } from "date-fns";
 import { Platform } from "react-native";
 import type { Deadline } from "@types";
 
+const isExpoGo = Constants.appOwnership === "expo";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true
   })
@@ -31,6 +35,12 @@ export async function setupNotifications(): Promise<string | null> {
       name: "Deadlines",
       importance: Notifications.AndroidImportance.HIGH
     });
+  }
+
+  // Expo documents that remote push token support is unavailable in Expo Go on Android.
+  // Keep local notifications working in Expo Go, but skip remote token registration there.
+  if (isExpoGo && Platform.OS === "android") {
+    return null;
   }
 
   const token = await Notifications.getExpoPushTokenAsync({

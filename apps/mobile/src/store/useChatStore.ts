@@ -24,6 +24,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isSending: false,
 
   sendMessage: async (content, profile) => {
+    const existingMessages = get().messages.filter((message) => !message.isStreaming);
     const userMessage: ChatMessage = {
       id: createId("user"),
       role: "user",
@@ -46,7 +47,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       const response = await streamAdvisorResponse(
-        [...get().messages.filter((message) => !message.isStreaming), userMessage],
+        [...existingMessages, userMessage],
         profile,
         (chunk) => {
           set((state) => ({
