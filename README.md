@@ -31,7 +31,7 @@ A comprehensive web application that helps students navigate their college journ
 - **Forms**: React Hook Form with Zod validation
 - **Animations**: Framer Motion
 - **Package Manager**: Bun
-- **Deployment**: Netlify (static export)
+- **Deployment**: Vercel (Next.js hosting)
 
 ## 📦 Installation
 
@@ -150,18 +150,15 @@ src/
 
 ## 🚀 Deployment
 
-The application is configured for static export and can be deployed to:
+The application is configured for Vercel deployment with Next.js server capabilities.
 
-- **Netlify**: Automatic deployment from GitHub
-- **Vercel**: Native Next.js hosting
-- **Any static host**: Built as static files
+- **Vercel**: Automatic preview and production deployment from GitHub
+- **Any Node.js host**: Run with `npm run build` and `npm run start`
 
 ### Build Configuration
 ```javascript
 // next.config.js
 const nextConfig = {
-  output: 'export',
-  distDir: 'out',
   eslint: { ignoreDuringBuilds: true },
   images: { unoptimized: true }
 };

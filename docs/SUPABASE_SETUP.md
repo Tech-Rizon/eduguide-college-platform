@@ -31,23 +31,12 @@ After your project is created:
 
 ### Step 3: Apply Database Migrations
 
-There are two migration files to apply:
-
-#### Migration 1: Payments Table
-File: `db/migrations/20260104_create_payments_table.sql`
+Run the single combined database script:
+- `db/supabase_all_in_one.sql`
 
 1. In Supabase, go to **SQL Editor**
 2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260104_create_payments_table.sql`
-4. Paste into the SQL editor
-5. Click **Run**
-
-#### Migration 2: User Profiles & Tutoring Tables
-File: `db/migrations/20260105_create_user_and_tutoring_tables.sql`
-
-1. In Supabase, go to **SQL Editor**
-2. Click **New Query**
-3. Copy the entire contents of `db/migrations/20260105_create_user_and_tutoring_tables.sql`
+3. Copy the entire contents of `db/supabase_all_in_one.sql`
 4. Paste into the SQL editor
 5. Click **Run**
 
@@ -59,6 +48,19 @@ File: `db/migrations/20260105_create_user_and_tutoring_tables.sql`
    - `user_profiles`
    - `user_settings`
    - `tutoring_requests`
+   - `user_roles`
+   - `student_dashboard_metrics`
+   - `staff_dashboard_metrics`
+   - `admin_audit_logs`
+   - `support_requests`
+   - `backoffice_tickets`
+   - `backoffice_ticket_events`
+   - `backoffice_ticket_messages`
+   - `backoffice_ticket_internal_notes`
+   - `backoffice_ticket_attachments`
+   - `referral_codes`
+   - `referrals`
+   - `subscriptions`
 
 ### Step 5: Configure Authentication
 
@@ -171,6 +173,13 @@ Stores tutoring session requests.
 - `scheduled_date` - Scheduled date/time (optional)
 - `created_at`, `updated_at` - Timestamps
 
+### user_roles
+Stores user access roles and staff hierarchy.
+- `user_id` - User ID (matches auth.users)
+- `role` - Top-level role (`student` or `staff`)
+- `staff_level` - Required when role is `staff` (`tutor`, `support`, `manager`, `super_admin`)
+- `created_at`, `updated_at` - Timestamps
+
 ## Security Features
 
 ### Row Level Security (RLS)
@@ -208,7 +217,7 @@ All tables have RLS enabled with the following policies:
 
 ## Production Deployment
 
-When deploying to Vercel/Netlify:
+When deploying to Vercel:
 
 1. Set all environment variables in hosting platform settings
 2. Use the same Supabase project or create a production project

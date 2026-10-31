@@ -85,7 +85,7 @@ export async function PUT(request: Request) {
       .eq('user_id', userId)
       .single()
 
-    let result
+    let result: { data: unknown[] | null; error: unknown }
     if (existingSettings) {
       // Update existing settings
       result = await sb
